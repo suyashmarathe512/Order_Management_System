@@ -1,150 +1,141 @@
-@RestResource(urlMapping='/products/*')
-global class ProductService {
+@RestResource(urlMapping='/products')
+global with sharing class ProductService {
+    
     global class ProductWrapper {
-        global String externalId;
         global String name;
         global String productCode;
         global String description;
-        global String displayUrl;
         global String family;
         global Boolean isActive;
         global String sku;
         global String quantityUnitOfMeasure;
-        global DateTime createdDate;
-        global DateTime lastModifiedDate;
         global List<PricebookEntryWrapper> pricebookEntries;
-        global ProductWrapper(Product2 prod, List<PricebookEntry> pbes) {
-            this.externalId = prod.ProductCode;
-            this.name = prod.Name;
-            this.productCode = prod.ProductCode;
-            this.description = prod.Description;
-            this.displayUrl = prod.DisplayUrl;
-            this.family = prod.Family;
-            this.isActive = prod.IsActive;
-            this.sku = prod.StockKeepingUnit;
-            this.quantityUnitOfMeasure = prod.QuantityUnitOfMeasure;
-            this.createdDate = prod.CreatedDate;
-            this.lastModifiedDate = prod.LastModifiedDate;
-            this.pricebookEntries = new List<PricebookEntryWrapper>();
-            if (pbes != null) {
-                for (PricebookEntry pbe : pbes) {
-                    this.pricebookEntries.add(new PricebookEntryWrapper(pbe));
-                }
-            }
-        }
     }
+    
     global class PricebookEntryWrapper {
-        global String pricebookEntryId;
         global String pricebook2Id;
-        global String pricebook2Name;
         global Decimal unitPrice;
         global Boolean isActive;
         global Boolean useStandardPrice;
-        global DateTime createdDate;
-        global DateTime lastModifiedDate;
-
-        global PricebookEntryWrapper(PricebookEntry pbe) {
-            this.pricebookEntryId = pbe.Id;
-            this.pricebook2Id = pbe.Pricebook2Id;
-            this.pricebook2Name = pbe.Pricebook2.Name;
-            this.unitPrice = pbe.UnitPrice;
-            this.isActive = pbe.IsActive;
-            this.useStandardPrice = pbe.UseStandardPrice;
-            this.createdDate = pbe.CreatedDate;
-            this.lastModifiedDate = pbe.LastModifiedDate;
-        }
     }
-    global class ProductResponse {
-        global List<ProductWrapper> products;
-        global Integer count;
-        global String status;
 
-        global ProductResponse(List<ProductWrapper> prods, String stat) {
-            this.products = prods;
-            this.count = (prods != null) ? prods.size() : 0;
-            this.status = stat;
-        }
-    }
-    @HttpGet
-    global static ProductResponse getProducts() {
-        RestRequest req = RestContext.request;
-        String externalIdsParam = req.params.get('externalIds');
+    @HttpPost
+    global static void upsertProducts() {
+        RestResponse res = RestContext.response;
+        try {
+            // Deserialize incoming JSON
+            String requestBody = RestContext.request.requestBody.toString();
+            List<ProductWrapper> productWrappers = 
+                (List<ProductWrapper>) JSON.deserialize(requestBody, List<ProductWrapper>.class);
 
-        if (String.isNotBlank(externalIdsParam)) {
-            List<String> externalIdList = new List<String>();
-            for (String id : externalIdsParam.split(',')) {
-                String trimmedId = id.trim();
-                if (String.isNotBlank(trimmedId)) {
-                    externalIdList.add(trimmedId);
+            // Collect all product codes
+            Set<String> productCodes = new Set<String>();
+            for (ProductWrapper pw : productWrappers) {
+                productCodes.add(pw.productCode);
+            }
+
+            // Fetch existing products
+            Map<String, Product2> existingProducts = new Map<String, Product2>();
+            for (Product2 p : [
+                SELECT Id, Name, ProductCode FROM Product2 WHERE ProductCode IN :productCodes
+            ]) {
+                existingProducts.put(p.ProductCode, p);
+            }
+
+            List<Product2> toInsert = new List<Product2>();
+            List<Product2> toUpdate = new List<Product2>();
+            Map<String, Id> productCodeToId = new Map<String, Id>();
+
+            // Upsert products
+            for (ProductWrapper pw : productWrappers) {
+                if (existingProducts.containsKey(pw.productCode)) {
+                    Product2 existing = existingProducts.get(pw.productCode);
+                    existing.Name = pw.name;
+                    existing.Description = pw.description;
+                    existing.Family = pw.family;
+                    existing.IsActive = pw.isActive;
+                    existing.StockKeepingUnit = pw.sku;
+                    existing.QuantityUnitOfMeasure = pw.quantityUnitOfMeasure;
+                    toUpdate.add(existing);
+                    productCodeToId.put(pw.productCode, existing.Id);
+                } else {
+                    Product2 prod = new Product2(
+                        Name = pw.name,
+                        ProductCode = pw.productCode,
+                        Description = pw.description,
+                        Family = pw.family,
+                        IsActive = pw.isActive,
+                        StockKeepingUnit = pw.sku,
+                        QuantityUnitOfMeasure = pw.quantityUnitOfMeasure
+                    );
+                    toInsert.add(prod);
                 }
             }
-            if (externalIdList.isEmpty()) {
-                RestContext.response.statusCode = 400;
-                return new ProductResponse(null, 'Bad Request: Empty external IDs list');
-            }
-            if (externalIdList.size() > 100) {
-                RestContext.response.statusCode = 400;
-                return new ProductResponse(null, 'Bad Request: Too many external IDs (max 100)');
-            }
-            try {
-                List<Product2> products = [SELECT
-                                                Id, Name, ProductCode, Description, DisplayUrl, Family, IsActive, StockKeepingUnit, QuantityUnitOfMeasure,
-                                                (SELECT Id, Pricebook2Id, Pricebook2.Name, UnitPrice, IsActive, UseStandardPrice
-                                            FROM
-                                                PricebookEntries
-                                            ORDER BY
-                                                Pricebook2.Name)
-                                           FROM
-                                                Product2
-                                            WHERE
-                                                ProductCode
-                                            IN
-                                                :externalIdList
-                                            ORDER BY
-                                                Name];
-                if (products.isEmpty()) {
-                    RestContext.response.statusCode = 404;
-                    return new ProductResponse(null, 'Not Found: No products found for the provided external IDs');
-                }
 
-                List<ProductWrapper> productWrappers = new List<ProductWrapper>();
-                for (Product2 prod : products) {
-                    productWrappers.add(new ProductWrapper(prod, prod.PricebookEntries));
+            // Perform DML
+            if (!toInsert.isEmpty()) {
+                Database.SaveResult[] insRes = Database.insert(toInsert, false);
+                for (Integer i = 0; i < insRes.size(); i++) {
+                    if (insRes[i].isSuccess()) {
+                        productCodeToId.put(toInsert[i].ProductCode, insRes[i].getId());
+                    }
                 }
-                return new ProductResponse(productWrappers, 'Success');
-            } catch (QueryException e) {
-                RestContext.response.statusCode = 400;
-                return new ProductResponse(null, 'Bad Request: Invalid external IDs');
-            } catch (Exception e) {
-                RestContext.response.statusCode = 500;
-                return new ProductResponse(null, 'Internal Server Error');
             }
-        } else {
-            try {
-                List<Product2> products = [SELECT
-                                                Id, Name, ProductCode, Description, DisplayUrl, Family, IsActive, StockKeepingUnit, QuantityUnitOfMeasure,
-                                                (SELECT Id, Pricebook2Id, Pricebook2.Name, UnitPrice, IsActive, UseStandardPrice
-                                                FROM
-                                                    PricebookEntries
-                                                ORDER BY
-                                                    Pricebook2.Name)
-                                            FROM
-                                                Product2
-                                            ORDER BY
-                                                Name
-                                            LIMIT
-                                                50];
+            if (!toUpdate.isEmpty()) Database.update(toUpdate, false);
 
-                List<ProductWrapper> productWrappers = new List<ProductWrapper>();
-                for (Product2 prod : products) {
-                    productWrappers.add(new ProductWrapper(prod, prod.PricebookEntries));
+            // Now handle PricebookEntries
+            List<PricebookEntry> toUpsertPBEs = new List<PricebookEntry>();
+            for (ProductWrapper pw : productWrappers) {
+                if (pw.pricebookEntries == null) continue;
+                Id prodId = productCodeToId.get(pw.productCode);
+                if (prodId == null) continue;
+
+                for (PricebookEntryWrapper pbew : pw.pricebookEntries) {
+                    if (pbew.pricebook2Id == null) continue;
+
+                    // Check if this PBE already exists
+                    List<PricebookEntry> existing = [
+                        SELECT Id, UnitPrice, IsActive, UseStandardPrice
+                        FROM PricebookEntry
+                        WHERE Product2Id = :prodId AND Pricebook2Id = :pbew.pricebook2Id
+                        LIMIT 1
+                    ];
+
+                    if (existing.isEmpty()) {
+                        toUpsertPBEs.add(new PricebookEntry(
+                            Product2Id = prodId,
+                            Pricebook2Id = pbew.pricebook2Id,
+                            UnitPrice = pbew.unitPrice,
+                            IsActive = pbew.isActive,
+                            UseStandardPrice = pbew.useStandardPrice
+                        ));
+                    } else {
+                        PricebookEntry pbe = existing[0];
+                        pbe.UnitPrice = pbew.unitPrice;
+                        pbe.IsActive = pbew.isActive;
+                        pbe.UseStandardPrice = pbew.useStandardPrice;
+                        toUpsertPBEs.add(pbe);
+                    }
                 }
-
-                return new ProductResponse(productWrappers, 'Success');
-            } catch (Exception e) {
-                RestContext.response.statusCode = 500;
-                return new ProductResponse(null, 'Internal Server Error');
             }
+
+            if (!toUpsertPBEs.isEmpty()) {
+                Database.upsert(toUpsertPBEs);
+            }
+
+            // Success response
+            res.responseBody = Blob.valueOf(JSON.serialize(new Map<String, Object>{
+                'message' => 'Sync successful',
+                'insertedProducts' => toInsert.size(),
+                'updatedProducts' => toUpdate.size(),
+                'pricebookEntriesProcessed' => toUpsertPBEs.size()
+            }));
+            res.statusCode = 200;
+        } catch (Exception e) {
+            res.responseBody = Blob.valueOf(JSON.serialize(
+                new Map<String, String>{'error' => e.getMessage()}
+            ));
+            res.statusCode = 500;
         }
     }
 }
