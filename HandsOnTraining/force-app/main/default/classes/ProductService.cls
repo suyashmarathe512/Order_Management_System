@@ -1,22 +1,28 @@
 @RestResource(urlMapping='/products/*')
 global class ProductService {
     global class ProductWrapper {
-        global String productId;
+        global String externalId;
         global String name;
         global String productCode;
         global String description;
+        global String displayUrl;
         global String family;
         global Boolean isActive;
+        global String sku;
+        global String quantityUnitOfMeasure;
         global DateTime createdDate;
         global DateTime lastModifiedDate;
         global List<PricebookEntryWrapper> pricebookEntries;
         global ProductWrapper(Product2 prod, List<PricebookEntry> pbes) {
-            this.productId = prod.ProductId__c;
+            this.externalId = prod.ProductCode;
             this.name = prod.Name;
             this.productCode = prod.ProductCode;
             this.description = prod.Description;
+            this.displayUrl = prod.DisplayUrl;
             this.family = prod.Family;
             this.isActive = prod.IsActive;
+            this.sku = prod.StockKeepingUnit;
+            this.quantityUnitOfMeasure = prod.QuantityUnitOfMeasure;
             this.createdDate = prod.CreatedDate;
             this.lastModifiedDate = prod.LastModifiedDate;
             this.pricebookEntries = new List<PricebookEntryWrapper>();
@@ -62,42 +68,43 @@ global class ProductService {
     @HttpGet
     global static ProductResponse getProducts() {
         RestRequest req = RestContext.request;
-        String productIdsParam = req.params.get('productIds');
+        String externalIdsParam = req.params.get('externalIds');
 
-        if (String.isNotBlank(productIdsParam)) {
-            List<String> productIdList = new List<String>();
-            for (String id : productIdsParam.split(',')) {
+        if (String.isNotBlank(externalIdsParam)) {
+            List<String> externalIdList = new List<String>();
+            for (String id : externalIdsParam.split(',')) {
                 String trimmedId = id.trim();
                 if (String.isNotBlank(trimmedId)) {
-                    productIdList.add(trimmedId);
+                    externalIdList.add(trimmedId);
                 }
             }
-            if (productIdList.isEmpty()) {
+            if (externalIdList.isEmpty()) {
                 RestContext.response.statusCode = 400;
-                return new ProductResponse(null, 'Bad Request: Empty product IDs list');
+                return new ProductResponse(null, 'Bad Request: Empty external IDs list');
             }
-            if (productIdList.size() > 100) {
+            if (externalIdList.size() > 100) {
                 RestContext.response.statusCode = 400;
-                return new ProductResponse(null, 'Bad Request: Too many product IDs (max 100)');
-            }try {
-                List<Product2> products = [SELECT 
-                                                Id, ProductId__c, Name, ProductCode, Description, Family, IsActive,
+                return new ProductResponse(null, 'Bad Request: Too many external IDs (max 100)');
+            }
+            try {
+                List<Product2> products = [SELECT
+                                                Id, Name, ProductCode, Description, DisplayUrl, Family, IsActive, StockKeepingUnit, QuantityUnitOfMeasure,
                                                 (SELECT Id, Pricebook2Id, Pricebook2.Name, UnitPrice, IsActive, UseStandardPrice
-                                            FROM 
-                                                PricebookEntries 
-                                            ORDER BY 
+                                            FROM
+                                                PricebookEntries
+                                            ORDER BY
                                                 Pricebook2.Name)
-                                           FROM 
-                                                Product2 
-                                            WHERE 
-                                                ProductId__c
-                                            IN 
-                                                :productIdList 
-                                            ORDER BY 
+                                           FROM
+                                                Product2
+                                            WHERE
+                                                ProductCode
+                                            IN
+                                                :externalIdList
+                                            ORDER BY
                                                 Name];
                 if (products.isEmpty()) {
                     RestContext.response.statusCode = 404;
-                    return new ProductResponse(null, 'Not Found: No products found for the provided IDs');
+                    return new ProductResponse(null, 'Not Found: No products found for the provided external IDs');
                 }
 
                 List<ProductWrapper> productWrappers = new List<ProductWrapper>();
@@ -107,25 +114,25 @@ global class ProductService {
                 return new ProductResponse(productWrappers, 'Success');
             } catch (QueryException e) {
                 RestContext.response.statusCode = 400;
-                return new ProductResponse(null, 'Bad Request: Invalid product IDs');
+                return new ProductResponse(null, 'Bad Request: Invalid external IDs');
             } catch (Exception e) {
                 RestContext.response.statusCode = 500;
                 return new ProductResponse(null, 'Internal Server Error');
             }
         } else {
             try {
-                List<Product2> products = [SELECT 
-                                                Id, ProductId__c, Name, ProductCode, Description, Family, IsActive,
+                List<Product2> products = [SELECT
+                                                Id, Name, ProductCode, Description, DisplayUrl, Family, IsActive, StockKeepingUnit, QuantityUnitOfMeasure,
                                                 (SELECT Id, Pricebook2Id, Pricebook2.Name, UnitPrice, IsActive, UseStandardPrice
-                                                FROM  
-                                                    PricebookEntries 
-                                                ORDER BY 
+                                                FROM
+                                                    PricebookEntries
+                                                ORDER BY
                                                     Pricebook2.Name)
-                                            FROM 
-                                                Product2 
-                                            ORDER BY 
-                                                Name 
-                                            LIMIT 
+                                            FROM
+                                                Product2
+                                            ORDER BY
+                                                Name
+                                            LIMIT
                                                 50];
 
                 List<ProductWrapper> productWrappers = new List<ProductWrapper>();
