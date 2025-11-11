@@ -1,5 +1,4 @@
 public class ProductSyncBatch implements Database.Batchable<sObject>, Database.AllowsCallouts {
-
     public class ProductWrapper {
         public String name;
         public String productCode;
@@ -17,7 +16,6 @@ public class ProductSyncBatch implements Database.Batchable<sObject>, Database.A
         public Boolean isActive;
         public Boolean useStandardPrice;
     }
-
     public Database.QueryLocator start(Database.BatchableContext bc) {
         String query = 'SELECT Id, Name, ProductCode, Description, Family, IsActive, StockKeepingUnit, QuantityUnitOfMeasure, ' +
             '(SELECT Id, Pricebook2Id, Pricebook2.Name, UnitPrice, IsActive, UseStandardPrice FROM PricebookEntries) ' +
@@ -27,7 +25,6 @@ public class ProductSyncBatch implements Database.Batchable<sObject>, Database.A
 
     public void execute(Database.BatchableContext bc, List<Product2> scope) {
         List<ProductWrapper> payload = new List<ProductWrapper>();
-
         for (Product2 p : scope) {
             ProductWrapper pw = new ProductWrapper();
             pw.name = p.Name;
@@ -38,28 +35,22 @@ public class ProductSyncBatch implements Database.Batchable<sObject>, Database.A
             pw.sku = p.StockKeepingUnit;
             pw.quantityUnitOfMeasure = p.QuantityUnitOfMeasure;
             pw.pricebookEntries = new List<PricebookEntryWrapper>();
-
             for (PricebookEntry pe : p.PricebookEntries) {
                 PricebookEntryWrapper pbew = new PricebookEntryWrapper();
-                pbew.pricebook2Id = pe.Pricebook2Id;
                 pbew.pricebook2Name = pe.Pricebook2 != null ? pe.Pricebook2.Name : null;
                 pbew.unitPrice = pe.UnitPrice;
                 pbew.isActive = pe.IsActive;
                 pbew.useStandardPrice = pe.UseStandardPrice;
                 pw.pricebookEntries.add(pbew);
             }
-
             payload.add(pw);
         }
-
         String body = JSON.serialize(payload);
-
         HttpRequest req = new HttpRequest();
-        req.setEndpoint('callout:customerOrg/services/apexrest/products');
+        req.setEndpoint('callout:ServerOrg/services/apexrest/products');
         req.setMethod('POST');
         req.setHeader('Content-Type', 'application/json');
         req.setBody(body);
-
         Http http = new Http();
         try {
             HttpResponse res = http.send(req);
@@ -70,6 +61,7 @@ public class ProductSyncBatch implements Database.Batchable<sObject>, Database.A
     }
 
     public void finish(Database.BatchableContext bc) {
+        System.debug(RestContext.Response);
         System.debug('Product Sync Batch Completed.');
     }
 }
