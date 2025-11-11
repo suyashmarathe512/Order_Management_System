@@ -4,81 +4,44 @@ public with sharing class ProductController {
         if (pageNumber == null) pageNumber = 1;
         if (pageSize == null) pageSize = 12;
         Integer offsetRows = (pageNumber - 1) * pageSize;
+
+        // Prepare LIKE pattern if search present
         String likePattern;
         Boolean hasSearch = false;
         if (String.isNotBlank(searchQuery)) {
             hasSearch = true;
             likePattern = '%' + searchQuery + '%';
         }
-        String orderBy = 'Name';
-        String orderDir = 'ASC';
-        if (String.isNotBlank(sortField)) orderBy = sortField;
-        if (String.isNotBlank(sortDir)) orderDir = sortDir.toUpperCase() == 'DESC' ? 'DESC' : 'ASC';
+
+        // NOTE: keeping a simple, safe ORDER BY (Name ASC) to avoid dynamic SOQL pitfalls.
+        // If you need dynamic sorting, use Database.query with validated/whitelisted fields.
         List<Product2> products;
         if (hasSearch) {
             products = [
-                SELECT 
-                    Id, Name, ProductCode, Description, Family, IsActive, QuantityUnitOfMeasure, StockKeepingUnit,
-                       (SELECT 
-                            Pricebook2Id, UnitPrice 
-                        FROM 
-                            PricebookEntries 
-                        WHERE 
-                            IsActive = true 
-                        LIMIT 1)
-                FROM 
-                    Product2
-                WHERE 
-                    IsActive = true
-                  AND 
-                    (Name 
-                        LIKE 
-                            :likePattern 
-                        OR 
-                            ProductCode 
-                        LIKE 
-                            :likePattern
-                        OR 
-                            Description 
-                        LIKE 
-                            :likePattern)
-                ORDER BY
-                   Name ASC
+                SELECT Id, Name, ProductCode, Description, Family, IsActive, QuantityUnitOfMeasure, StockKeepingUnit, ProductImage__c,
+                       (SELECT Pricebook2Id, UnitPrice FROM PricebookEntries WHERE IsActive = true LIMIT 1)
+                FROM Product2
+                WHERE IsActive = true
+                  AND (Name LIKE :likePattern OR ProductCode LIKE :likePattern OR Description LIKE :likePattern)
+                ORDER BY Name ASC
                 LIMIT :pageSize
                 OFFSET :offsetRows
             ];
         } else {
             products = [
-                SELECT 
-                    Id, Name, ProductCode, Description, Family, IsActive, QuantityUnitOfMeasure, StockKeepingUnit,
-                    (SELECT 
-                        Pricebook2Id, UnitPrice 
-                    FROM 
-                        PricebookEntries 
-                    WHERE 
-                        IsActive = true 
-                    LIMIT 
-                        1)
-                FROM 
-                    Product2
-                WHERE 
-                    IsActive = true
-                ORDER BY 
-                    Name 
-                ASC
-                LIMIT 
-                    :pageSize
-                OFFSET 
-                    :offsetRows
+                SELECT Id, Name, ProductCode, Description, Family, IsActive, QuantityUnitOfMeasure, StockKeepingUnit, ProductImage__c,
+                       (SELECT Pricebook2Id, UnitPrice FROM PricebookEntries WHERE IsActive = true LIMIT 1)
+                FROM Product2
+                WHERE IsActive = true
+                ORDER BY Name ASC
+                LIMIT :pageSize
+                OFFSET :offsetRows
             ];
         }
-        Integer total = [SELECT 
-                            count() 
-                        FROM 
-                            Product2 
-                        WHERE 
-                            IsActive = true];
 
+        Integer total = [SELECT count() FROM Product2 WHERE IsActive = true];
+
+        // Map to DTOs (include productImage)
         List<ProductDTO> dtos = new List<ProductDTO>();
         for (Product2 p : products) {
             ProductDTO dto = new ProductDTO();
@@ -90,6 +53,8 @@ public with sharing class ProductController {
             dto.isActive = p.IsActive;
             dto.sku = p.StockKeepingUnit;
             dto.uom = p.QuantityUnitOfMeasure;
+            dto.productImage = p.ProductImage__c; // <<-- map formula URL field here
+
             if (p.PricebookEntries != null && p.PricebookEntries.size() > 0) {
                 PricebookEntry pbe = p.PricebookEntries[0];
                 dto.price = pbe.UnitPrice;
@@ -112,6 +77,7 @@ public with sharing class ProductController {
         @AuraEnabled public String uom;
         @AuraEnabled public Decimal price;
         @AuraEnabled public Id pricebookId;
+        @AuraEnabled public String productImage; // <-- exposed to LWC
     }
 
     public class ProductPage {

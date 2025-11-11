@@ -2,7 +2,7 @@ import { LightningElement, track } from 'lwc';
 import fetchProducts from '@salesforce/apex/ProductController.fetchProducts';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 
-export default class productInformationDisplay extends LightningElement {
+export default class ProductInformationDisplay extends LightningElement {
   @track products = [];
   @track pageNumber = 1;
   pageSize = 12;
@@ -11,14 +11,34 @@ export default class productInformationDisplay extends LightningElement {
   @track totalSize = 0;
   @track searchKey = '';
   @track noResults = false;
+
+  // cart state
+  @track cartItems = [];
+
+  // modal & drawer
   @track showModal = false;
   @track modalProduct = {};
-  skeletons = new Array(6);
+  @track showCart = false;
+
+  // skeleton placeholders (array of objects with stable ids)
+  skeletons = Array.from({ length: 6 }, (_, i) => ({ id: `sk-${i}` }));
 
   connectedCallback() {
     this.loadProducts(true);
   }
 
+  // computed getters used in template (no inline expressions)
+  get cartCount() {
+    return this.cartItems.length;
+  }
+  get hasCartItems() {
+    return this.cartItems.length > 0;
+  }
+  get isCheckoutDisabled() {
+    return this.cartCount === 0;
+  }
+
+  // load products from Apex with server-side paging
   async loadProducts(reset = true) {
     try {
       if (reset) {
@@ -39,18 +59,19 @@ export default class productInformationDisplay extends LightningElement {
       });
 
       if (resp && resp.records) {
-        this.totalSize = resp.totalSize;
-        this.products = this.products.concat(resp.records);
+        this.totalSize = resp.totalSize || 0;
+
+        // append new unique records (avoid duplicates)
+        const newRecords = resp.records.filter(r => !this.products.some(p => p.id === r.id));
+        this.products = this.products.concat(newRecords);
         this.noResults = this.products.length === 0;
       }
     } catch (err) {
-      this.dispatchEvent(
-        new ShowToastEvent({
-          title: 'Error loading products',
-          message: err?.body?.message || err?.message || 'Unknown error',
-          variant: 'error'
-        })
-      );
+      this.dispatchEvent(new ShowToastEvent({
+        title: 'Error loading products',
+        message: err?.body?.message || err?.message || 'Unknown error',
+        variant: 'error'
+      }));
     } finally {
       this.isLoading = false;
       this.isLoadingMore = false;
@@ -59,7 +80,7 @@ export default class productInformationDisplay extends LightningElement {
 
   onSearchChange(event) {
     this.searchKey = event.target.value;
-    // Debounce handled by lightning-input's debounce attribute
+    // debounce respected by lightning-input; reload
     this.loadProducts(true);
   }
 
@@ -71,10 +92,21 @@ export default class productInformationDisplay extends LightningElement {
     }
   }
 
+  // cart behaviors
   handleAddToCart(e) {
     const prod = e.detail;
-    this.dispatchEvent(new ShowToastEvent({ title: 'Added to cart', message: prod.name || 'Product added', variant: 'success' }));
-    // TODO: call Apex to persist cart / raise LMS message for cross-component sync
+    if (!prod || !prod.id) {
+      this.dispatchEvent(new ShowToastEvent({ title: 'Invalid item', message: 'Cannot add item to cart', variant: 'error' }));
+      return;
+    }
+
+    // add if not present — simple qty=1 semantics
+    if (!this.cartItems.some(i => i.id === prod.id)) {
+      this.cartItems = [...this.cartItems, { ...prod, qty: 1 }];
+      this.dispatchEvent(new ShowToastEvent({ title: 'Added to cart', message: prod.name || 'Product added', variant: 'success' }));
+    } else {
+      this.dispatchEvent(new ShowToastEvent({ title: 'Already in cart', message: prod.name || 'Item already in cart', variant: 'info' }));
+    }
   }
 
   handleViewDetails(e) {
@@ -92,11 +124,36 @@ export default class productInformationDisplay extends LightningElement {
     this.closeModal();
   }
 
-  openFilterPanel() {
-    // placeholder for off-canvas filters
+  // drawer handlers
+  openCart() {
+    this.showCart = true;
+  }
+  onCartKeydown(evt) {
+    if (evt.key === 'Enter' || evt.key === ' ') {
+      this.openCart();
+    }
+  }
+  closeCart() {
+    this.showCart = false;
   }
 
+  removeFromCart(evt) {
+    const idToRemove = evt.currentTarget.dataset.id;
+    if (!idToRemove) return;
+    this.cartItems = this.cartItems.filter(i => i.id !== idToRemove);
+  }
+
+  onCheckout() {
+    // Place-holder — integrate with Order creation flow or Apex
+    this.dispatchEvent(new ShowToastEvent({ title: 'Checkout', message: `Proceeding with ${this.cartCount} items`, variant: 'success' }));
+    this.closeCart();
+  }
+
+  // placeholders
+  openFilterPanel() {
+    // implement off-canvas filters if needed
+  }
   onCreateOrder() {
-    // navigate to new order or open order creation modal
+    // navigate to order creation or open order modal
   }
 }

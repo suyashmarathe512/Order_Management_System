@@ -1,51 +1,135 @@
 <template>
-  <lightning-card title="Product Catalog" icon-name="standard:product">
-    <div class="controls slds-p-around_medium">
-      <div class="slds-grid slds-wrap slds-grid_align-spread slds-grid_vertical-align-center">
-        <div class="slds-col slds-size_1-of-1 slds-medium-size_6-of-12 slds-p-right_small">
-          <lightning-input type="search" placeholder="Search products or SKU" value={searchKey} onchange={onSearchChange} debounce="300"></lightning-input>
+  <!-- ========== HEADER ========== -->
+  <header class="header slds-p-around_small">
+    <div class="slds-grid slds-gutters header-inner">
+      <div class="slds-col slds-size_2-of-3 left-controls">
+        <div class="title-section">
+          <h1 class="title">
+            <lightning-icon icon-name="utility:store" size="small" class="title-icon"></lightning-icon>
+            Shopping Portal
+          </h1>
         </div>
-        <div class="slds-col slds-size_1-of-1 slds-medium-size_6-of-12 slds-text-align_right slds-p-left_small">
-          <lightning-button-icon icon-name="utility:filterList" alternative-text="Filters" title="Filters" onclick={openFilterPanel}></lightning-button-icon>
-          <lightning-button variant="brand" label="Create Order" onclick={onCreateOrder}></lightning-button>
+        <div class="buttons-section">
+          <lightning-input
+            type="search"
+            placeholder="Search products or SKU"
+            value={searchKey}
+            onchange={onSearchChange}
+            debounce="300">
+          </lightning-input>
+
+          <lightning-button-icon
+            icon-name="utility:filterList"
+            alternative-text="Filters"
+            title="Filters"
+            onclick={openFilterPanel}
+            class="filter-icon header-icon">
+          </lightning-button-icon>
+
+          <lightning-button variant="neutral" label="Create Order" onclick={onCreateOrder} class="create-order-btn header-button"></lightning-button>
+        </div>
+      </div>
+
+      <div class="slds-col slds-size_1-of-3 right-controls">
+        <!-- Cart with badge -->
+        <div class="cart-wrap" role="button" tabindex="0" onclick={openCart} onkeydown={onCartKeydown} title="Open Cart">
+          <lightning-button-icon icon-name="utility:shoppingCart" alternative-text="Cart" class="cart-icon"></lightning-button-icon>
+          <template if:true={hasCartItems}>
+            <span class="cart-badge">{cartCount}</span>
+          </template>
         </div>
       </div>
     </div>
+  </header>
 
-    <div class="slds-p-horizontal_medium">
-      <template if:true={isLoading}>
-        <div class="slds-grid slds-wrap slds-grid_align-spread">
-          <div key={s} class="slds-col slds-size_1-of-1 slds-medium-size_1-of-3" for:each={skeletons} for:item="s">
+  <!-- ========== BODY ========== -->
+  <section class="body slds-p-horizontal_small">
+    <!-- loading skeletons -->
+    <template if:true={isLoading}>
+      <div class="slds-grid slds-wrap loading-row">
+        <template for:each={skeletons} for:item="s">
+          <!-- use stable key from skeleton object -->
+          <div key={s.id} class="slds-col slds-size_1-of-1 slds-medium-size_1-of-4">
             <div class="product-skeleton slds-box slds-m-around_small">
               <div class="slds-skeleton slds-skeleton_rectangle skeleton-image"></div>
               <div class="slds-skeleton slds-skeleton_text"></div>
               <div class="slds-skeleton slds-skeleton_text"></div>
             </div>
           </div>
-        </div>
+        </template>
+      </div>
+    </template>
+
+    <!-- product grid (scrollable) -->
+    <div class="product-grid" onscroll={onGridScroll} data-id="productGrid" role="list">
+      <template if:true={products}>
+        <template for:each={products} for:item="product">
+          <div key={product.id} class="product-card-wrapper" role="listitem">
+            <c-product-card product={product} onaddtocart={handleAddToCart} onviewdetails={handleViewDetails}></c-product-card>
+          </div>
+        </template>
       </template>
 
-      <div class="product-grid slds-grid" onscroll={onGridScroll} data-id="productGrid">
-        <template if:true={products}>
-          <template for:each={products} for:item="product">
-            <div key={product.id} class="product-card-wrapper slds-col slds-size_1-of-4">
-              <c-product-card product={product} onaddtocart={handleAddToCart} onviewdetails={handleViewDetails}></c-product-card>
+      <template if:true={noResults}>
+        <div class="slds-text-align_center slds-p-vertical_large">No products found.</div>
+      </template>
+    </div>
+
+    <!-- infinite scroll spinner -->
+    <template if:true={isLoadingMore}>
+      <div class="slds-text-align_center slds-m-vertical_medium">
+        <lightning-spinner alternative-text="Loading more products"></lightning-spinner>
+      </div>
+    </template>
+  </section>
+
+  <!-- ========== FOOTER ========== -->
+  <footer class="footer slds-p-around_small slds-text-align_center">
+    <div class="footer-content">
+      <span>Showing {products.length} of {totalSize} products</span>
+    </div>
+  </footer>
+
+  <!-- ========== CART DRAWER ========== -->
+  <template if:true={showCart}>
+    <section class="cart-drawer" role="dialog" aria-modal="true" aria-label="Cart">
+      <div class="cart-header">
+        <h3>Cart ({cartCount})</h3>
+        <lightning-button-icon icon-name="utility:close" alternative-text="Close" onclick={closeCart}></lightning-button-icon>
+      </div>
+
+      <div class="cart-body">
+        <template if:true={cartItems.length}>
+          <template for:each={cartItems} for:item="it">
+            <div key={it.id} class="cart-item">
+              <div class="cart-item-left">
+                <div class="cart-item-name" title={it.name}>{it.name}</div>
+                <div class="cart-item-sku">SKU: {it.sku}</div>
+              </div>
+
+              <div class="cart-item-right">
+                <div class="cart-item-price">{it.price}</div>
+                <lightning-button-icon icon-name="utility:delete" alternative-text="Remove" title="Remove" onclick={removeFromCart} data-id={it.id}></lightning-button-icon>
+              </div>
             </div>
           </template>
         </template>
 
-        <template if:true={noResults}>
-          <div class="slds-text-align_center slds-p-vertical_large">No products found.</div>
+        <template if:false={cartItems.length}>
+          <div class="empty-cart">Your cart is empty.</div>
         </template>
       </div>
 
-      <template if:true={isLoadingMore}>
-        <div class="slds-text-align_center slds-m-vertical_medium">
-          <lightning-spinner alternative-text="Loading more products"></lightning-spinner>
-        </div>
-      </template>
-    </div>
-  </lightning-card>
+      <div class="cart-footer">
+        <lightning-button variant="neutral" label="Close" onclick={closeCart}></lightning-button>
+        <lightning-button variant="brand" label="Checkout" onclick={onCheckout} disabled={isCheckoutDisabled}></lightning-button>
+      </div>
+    </section>
+
+    <div class="drawer-backdrop" onclick={closeCart}></div>
+  </template>
+
+  <!-- ========== PRODUCT DETAIL MODAL ========== -->
   <template if:true={showModal}>
     <section role="dialog" tabindex="-1" aria-modal="true" aria-label="Product details" class="slds-modal slds-fade-in-open">
       <div class="slds-modal__container">

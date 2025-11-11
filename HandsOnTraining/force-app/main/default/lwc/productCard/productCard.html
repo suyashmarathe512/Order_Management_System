@@ -1,29 +1,37 @@
 <template>
-  <article class="slds-card product-card" role="listitem" tabindex="0" aria-label={product.name}>
-    <div class="slds-card__header slds-grid">
-      <div class="slds-media slds-media_center">
-        <div class="slds-media__figure">
-          <div class="image-placeholder" role="img" aria-label={product.name}></div>
-        </div>
-        <div class="slds-media__body">
-          <h3 class="slds-truncate" title={product.name}>{product.name}</h3>
-          <p class="slds-text-body_small">{product.family}</p>
-        </div>
+  <article class="slds-card product-card" role="listitem" tabindex="0" aria-label={ariaLabel}>
+    <!-- Header: image + title -->
+    <div class="card-header">
+      <div class="product-image-wrapper">
+        <template if:true={productImage}>
+          <img src={productImage} alt={product.name} loading="lazy" class="product-image" />
+        </template>
+        <template if:false={productImage}>
+          <div class="image-placeholder" aria-hidden="true"></div>
+        </template>
+      </div>
+
+      <div class="product-meta">
+        <h3 class="product-title" title={product.name}>{product.name}</h3>
+        <p class="product-family">{product.family}</p>
       </div>
     </div>
 
-    <div class="slds-card__body slds-card__body_inner">
-      <p class="slds-text-body_regular slds-truncate" title={product.description}>{product.description}</p>
+    <!-- Body: description -->
+    <div class="card-body">
+      <p class="product-desc" title={product.description}>{product.description}</p>
     </div>
 
-    <div class="slds-card__footer slds-grid slds-grid_align-spread">
-      <div>
-        <div class="price">{product.price}</div>
+    <!-- Footer: price, sku, actions -->
+    <div class="card-footer">
+      <div class="price-block">
+        <div class="price" aria-label="Price">{formattedPrice}</div>
         <div class="sku">SKU: {product.sku}</div>
       </div>
-      <div class="actions slds-grid slds-grid_align-end slds-grid_vertical-align-center">
-        <lightning-button variant="neutral" label="View" title="View" onclick={onView}></lightning-button>
-        <lightning-button variant="brand" label="Add" title="Add to Cart" onclick={onAdd}></lightning-button>
+
+      <div class="action-block">
+        <lightning-button variant="neutral" label="View" title="View" onclick={onView} class="btn-view"></lightning-button>
+        <lightning-button variant="brand" label="Add" title="Add to Cart" onclick={onAdd} class="btn-add"></lightning-button>
       </div>
     </div>
   </article>
