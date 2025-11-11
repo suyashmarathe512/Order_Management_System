@@ -67,18 +67,35 @@ global with sharing class ProductService {
 
             Map<String, Id> pricebookNameToId = new Map<String, Id>();
             if (!pbNames.isEmpty()) {
-                for (Pricebook2 pb : [SELECT 
-                                            Id, Name 
-                                    FROM 
-                                        Pricebook2 
-                                    WHERE 
-                                        Name 
-                                    IN 
+                for (Pricebook2 pb : [SELECT
+                                            Id, Name
+                                    FROM
+                                        Pricebook2
+                                    WHERE
+                                        Name
+                                    IN
                                         :pbNames]) {
                     pricebookNameToId.put(pb.Name, pb.Id);
                 }
             }
 
+            // Query existing PBEs for existing products to check for notification
+            Map<Id, List<PricebookEntry>> productPBEs = new Map<Id, List<PricebookEntry>>();
+            if (!existingBySKU.isEmpty()) {
+                Set<Id> existingProductIds = new Set<Id>();
+                for (Product2 p : existingBySKU.values()) {
+                    existingProductIds.add(p.Id);
+                }
+                for (PricebookEntry pbe : [SELECT Id, Product2Id, Pricebook2Id, UnitPrice, IsActive, UseStandardPrice
+                                           FROM PricebookEntry
+                                           WHERE Product2Id IN :existingProductIds]) {
+                    if (!productPBEs.containsKey(pbe.Product2Id)) {
+                        productPBEs.put(pbe.Product2Id, new List<PricebookEntry>());
+                    }
+                    productPBEs.get(pbe.Product2Id).add(pbe);
+                }
+            }
+            List<String> affectedProducts = new List<String>();
             List<Product2> toInsert = new List<Product2>();
             Map<Id, Product2> toUpdateById = new Map<Id, Product2>();
 
@@ -98,6 +115,12 @@ global with sharing class ProductService {
                     existing.StockKeepingUnit = pw.sku;
                     toUpdateById.put(existing.Id, existing);
                     productKeyToId.put('SKU::' + pw.sku, existing.Id);
+
+                    // Check for escalation: if product has PBEs in org but payload has none
+                    if (productPBEs.containsKey(existing.Id) && !productPBEs.get(existing.Id).isEmpty() &&
+                        (pw.pricebookEntries == null || pw.pricebookEntries.isEmpty())) {
+                        affectedProducts.add('SKU: ' + pw.sku + ', Name: ' + existing.Name);
+                    }
                 } else {
                     Product2 newP = new Product2(
                         Name = pw.name,
@@ -247,6 +270,22 @@ global with sharing class ProductService {
             }
             if (!pbesToInsert.isEmpty()) Database.insert(pbesToInsert, false);
             if (!pbesToUpdate.isEmpty()) Database.update(pbesToUpdate, false);
+
+            // Escalate a case if there are affected products
+            if (!affectedProducts.isEmpty()) {
+                Group salesTeamGroup = [SELECT Id FROM Group WHERE Name = 'Sales_Team' AND Type = 'Regular' LIMIT 1];
+                if (salesTeamGroup != null) {
+                    Case escalationCase = new Case(
+                        Subject = 'Escalation: Products with PBEs in org but missing in payload',
+                        Description = 'The following products have Pricebook Entries in the org but the payload does not include any PBEs:\n' + String.join(affectedProducts, '\n'),
+                        OwnerId = salesTeamGroup.Id,
+                        Status = 'New',
+                        Origin = 'Web'
+                    );
+                    Database.insert(escalationCase, false);
+                }
+            }
+
             Map<String, Object> resp = new Map<String, Object>{
                 'message' => 'Sync completed (SKU-only matching).',
                 'productsInserted' => toInsert.size(),
