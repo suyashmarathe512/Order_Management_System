@@ -1,12 +1,14 @@
 @RestResource(urlMapping='/products')
 global with sharing class ProductService {
+    // Payload now only needs the recordId from the caller org.
+    // That recordId value corresponds to this org's Product2.ExternalId.
     global class ProductWrapper {
+        global String recordId; // incoming org's record id, equals our Product2.ExternalId
         global String name;
         global String productCode;
         global String description;
         global String family;
         global Boolean isActive;
-        global String sku;
         global String quantityUnitOfMeasure;
         global List<PricebookEntryWrapper> pricebookEntries;
     }
@@ -40,31 +42,29 @@ global with sharing class ProductService {
                 return;
             }
 
-            Set<String> skus = new Set<String>();
+            Set<String> externalIds = new Set<String>();
             Set<String> pbNames = new Set<String>();
             for (ProductWrapper pw : payload) {
-                if (pw.sku != null) skus.add(pw.sku);
+                if (pw.recordId != null) externalIds.add(pw.recordId);
                 if (pw.pricebookEntries != null) {
                     for (PricebookEntryWrapper pbw : pw.pricebookEntries) {
                         if (pbw.pricebook2Name != null) pbNames.add(pbw.pricebook2Name);
                     }
                 }
             }
-
-            Map<String, Product2> existingBySKU = new Map<String, Product2>();
-            if (!skus.isEmpty()) {
+            Map<String, Product2> existingByExternalId = new Map<String, Product2>();
+            if (!externalIds.isEmpty()) {
                 for (Product2 p : [SELECT 
-                                        Id, StockKeepingUnit, Name, Description, Family, IsActive, QuantityUnitOfMeasure
+                                        Id, ExternalId, Name, Description, Family, IsActive, QuantityUnitOfMeasure
                                    FROM 
                                         Product2 
                                     WHERE 
-                                        StockKeepingUnit 
+                                        ExternalId 
                                     IN 
-                                        :skus]) {
-                    if (p.StockKeepingUnit != null) existingBySKU.put(p.StockKeepingUnit, p);
+                                        :externalIds]) {
+                    if (p.ExternalId != null) existingByExternalId.put(p.ExternalId, p);
                 }
             }
-
             Map<String, Id> pricebookNameToId = new Map<String, Id>();
             if (!pbNames.isEmpty()) {
                 for (Pricebook2 pb : [SELECT
@@ -78,17 +78,20 @@ global with sharing class ProductService {
                     pricebookNameToId.put(pb.Name, pb.Id);
                 }
             }
-
-            // Query existing PBEs for existing products to check for notification
             Map<Id, List<PricebookEntry>> productPBEs = new Map<Id, List<PricebookEntry>>();
-            if (!existingBySKU.isEmpty()) {
+            if (!existingByExternalId.isEmpty()) {
                 Set<Id> existingProductIds = new Set<Id>();
-                for (Product2 p : existingBySKU.values()) {
+                for (Product2 p : existingByExternalId.values()) {
                     existingProductIds.add(p.Id);
                 }
-                for (PricebookEntry pbe : [SELECT Id, Product2Id, Pricebook2Id, UnitPrice, IsActive, UseStandardPrice
-                                           FROM PricebookEntry
-                                           WHERE Product2Id IN :existingProductIds]) {
+                for (PricebookEntry pbe : [SELECT 
+                                                Id, Product2Id, Pricebook2Id, UnitPrice, IsActive, UseStandardPrice
+                                           FROM 
+                                                PricebookEntry
+                                           WHERE 
+                                                Product2Id 
+                                            IN 
+                                                :existingProductIds]) {
                     if (!productPBEs.containsKey(pbe.Product2Id)) {
                         productPBEs.put(pbe.Product2Id, new List<PricebookEntry>());
                     }
@@ -105,21 +108,19 @@ global with sharing class ProductService {
 
             for (Integer i = 0; i < payload.size(); i++) {
                 ProductWrapper pw = payload[i];
-                if (pw.sku != null && existingBySKU.containsKey(pw.sku)) {
-                    Product2 existing = existingBySKU.get(pw.sku);
+                if (pw.recordId != null && existingByExternalId.containsKey(pw.recordId)) {
+                    Product2 existing = existingByExternalId.get(pw.recordId);
                     existing.Name = pw.name;
                     existing.Description = pw.description;
                     existing.Family = pw.family;
                     existing.IsActive = pw.isActive;
                     existing.QuantityUnitOfMeasure = pw.quantityUnitOfMeasure;
-                    existing.StockKeepingUnit = pw.sku;
+                    existing.ExternalId = pw.recordId;
                     toUpdateById.put(existing.Id, existing);
-                    productKeyToId.put('SKU::' + pw.sku, existing.Id);
-
-                    // Check for escalation: if product has PBEs in org but payload has none
+                    productKeyToId.put('EXTID::' + pw.recordId, existing.Id);
                     if (productPBEs.containsKey(existing.Id) && !productPBEs.get(existing.Id).isEmpty() &&
                         (pw.pricebookEntries == null || pw.pricebookEntries.isEmpty())) {
-                        affectedProducts.add('SKU: ' + pw.sku + ', Name: ' + existing.Name);
+                        affectedProducts.add('ExternalId: ' + pw.recordId + ', Name: ' + existing.Name);
                     }
                 } else {
                     Product2 newP = new Product2(
@@ -128,15 +129,12 @@ global with sharing class ProductService {
                         Description = pw.description,
                         Family = pw.family,
                         IsActive = pw.isActive,
-                        StockKeepingUnit = pw.sku,
-                        QuantityUnitOfMeasure = pw.quantityUnitOfMeasure
-                    );
+                        QuantityUnitOfMeasure = pw.quantityUnitOfMeasure,
+                        ExternalId = pw.recordId);
                     toInsert.add(newP);
                     insertPayloadIndices.add(i);
                     productKeyToId.put('PAYIDX::' + String.valueOf(i), null);
-                    if (pw.sku != null) {
-                        productKeyToId.put('SKU::' + pw.sku, null);
-                    }
+                    productKeyToId.put('EXTID::' + pw.recordId, null);
                 }
             }
 
@@ -149,23 +147,23 @@ global with sharing class ProductService {
                         Id newId = sr.getId();
                         productKeyToId.put('PAYIDX::' + String.valueOf(payloadIndex), newId);
                         ProductWrapper pw = payload[payloadIndex];
-                        if (pw.sku != null) productKeyToId.put('SKU::' + pw.sku, newId);
+                        if (pw.recordId != null) productKeyToId.put('EXTID::' + pw.recordId, newId);
                     } else {
                     }
                 }
             }
-            Set<String> allSKUsToCheck = new Set<String>();
-            for (ProductWrapper pw : payload) if (pw.sku != null) allSKUsToCheck.add(pw.sku);
-            if (!allSKUsToCheck.isEmpty()) {
+            Set<String> allExternalIdsToCheck = new Set<String>();
+            for (ProductWrapper pw : payload) if (pw.recordId != null) allExternalIdsToCheck.add(pw.recordId);
+            if (!allExternalIdsToCheck.isEmpty()) {
                 for (Product2 p : [SELECT 
-                                        Id, StockKeepingUnit 
+                                        Id, ExternalId 
                                     FROM 
                                         Product2 
                                     WHERE 
-                                        StockKeepingUnit 
+                                        ExternalId 
                                     IN 
-                                        :allSKUsToCheck]) {
-                    productKeyToId.put('SKU::' + p.StockKeepingUnit, p.Id);
+                                        :allExternalIdsToCheck]) {
+                    productKeyToId.put('EXTID::' + p.ExternalId, p.Id);
                 }
             }
 
@@ -180,7 +178,7 @@ global with sharing class ProductService {
             for (Integer i = 0; i < payload.size(); i++) {
                 ProductWrapper pw = payload[i];
                 Id prodId = null;
-                if (pw.sku != null && productKeyToId.containsKey('SKU::' + pw.sku)) prodId = productKeyToId.get('SKU::' + pw.sku);
+                if (pw.recordId != null && productKeyToId.containsKey('EXTID::' + pw.recordId)) prodId = productKeyToId.get('EXTID::' + pw.recordId);
                 if (prodId == null && productKeyToId.containsKey('PAYIDX::' + String.valueOf(i))) prodId = productKeyToId.get('PAYIDX::' + String.valueOf(i));
                 if (prodId == null) {
                     continue;
@@ -287,7 +285,7 @@ global with sharing class ProductService {
             }
 
             Map<String, Object> resp = new Map<String, Object>{
-                'message' => 'Sync completed (SKU-only matching).',
+                'message' => 'Sync completed (RecordId->ExternalId matching).',
                 'productsInserted' => toInsert.size(),
                 'productsUpdated' => toUpdateById.size(),
                 'pbesInserted' => pbesToInsert.size(),

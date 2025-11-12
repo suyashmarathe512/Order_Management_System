@@ -5,7 +5,7 @@ public class ProductSyncBatch implements Database.Batchable<sObject>, Database.A
         public String description;
         public String family;
         public Boolean isActive;
-        public String sku;
+        public String recordId;
         public String quantityUnitOfMeasure;
         public List<PricebookEntryWrapper> pricebookEntries;
     }
@@ -17,7 +17,7 @@ public class ProductSyncBatch implements Database.Batchable<sObject>, Database.A
         public Boolean useStandardPrice;
     }
     public Database.QueryLocator start(Database.BatchableContext bc) {
-        String query = 'SELECT Id, Name, ProductCode, Description, Family, IsActive, StockKeepingUnit, QuantityUnitOfMeasure, ' +
+        String query = 'SELECT Id, Name, ProductCode, Description, Family, IsActive, ExternalId, QuantityUnitOfMeasure, ' +
             '(SELECT Id, Pricebook2Id, Pricebook2.Name, UnitPrice, IsActive, UseStandardPrice FROM PricebookEntries) ' +
             'FROM Product2';
         return Database.getQueryLocator(query);
@@ -32,7 +32,7 @@ public class ProductSyncBatch implements Database.Batchable<sObject>, Database.A
             pw.description = p.Description;
             pw.family = p.Family;
             pw.isActive = p.IsActive;
-            pw.sku = p.StockKeepingUnit;
+            pw.recordId = p.Id;
             pw.quantityUnitOfMeasure = p.QuantityUnitOfMeasure;
             pw.pricebookEntries = new List<PricebookEntryWrapper>();
             for (PricebookEntry pe : p.PricebookEntries) {
@@ -47,7 +47,7 @@ public class ProductSyncBatch implements Database.Batchable<sObject>, Database.A
         }
         String body = JSON.serialize(payload);
         HttpRequest req = new HttpRequest();
-        req.setEndpoint('callout:ServerOrg/services/apexrest/products');
+        req.setEndpoint('callout:customerOrg/services/apexrest/products');
         req.setMethod('POST');
         req.setHeader('Content-Type', 'application/json');
         req.setBody(body);
