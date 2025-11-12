@@ -27,6 +27,12 @@ export default class ProductCard extends LightningElement {
     }
   }
 
+  // NEW: boolean flag to indicate if PBE info used fallback from org
+  get isFetchedFromOrg() {
+    // support different casing and ensure boolean
+    return !!(this.product && (this.product.isFetchedFromOrg === true || this.product.isPriceFromOrg === true));
+  }
+
   onAdd() {
     this.dispatchEvent(new CustomEvent('addtocart', { detail: this.product }));
   }

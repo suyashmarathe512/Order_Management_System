@@ -1,5 +1,15 @@
 <template>
   <article class="product-card" role="listitem" tabindex="0" aria-label={ariaLabel}>
+    <!-- Red star if price came from org (fallback) -->
+    <template if:true={isFetchedFromOrg}>
+      <div class="org-star" title="Price from Org" aria-hidden="false">
+        <!-- SVG star for crisp rendering -->
+        <svg viewBox="0 0 24 24" class="org-star-icon" focusable="false" aria-hidden="true">
+          <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/>
+        </svg>
+      </div>
+    </template>
+
     <div class="card-header">
       <div class="product-image-wrapper" aria-hidden={imageHidden}>
         <template if:true={productImage}>

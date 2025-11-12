@@ -1,7 +1,6 @@
 import { LightningElement, track } from 'lwc';
 import fetchProducts from '@salesforce/apex/ProductController.fetchProducts';
-import fetchProductFamilies from '@salesforce/apex/ProductController.fetchProductFamilies';
-import fetchPBEsRealtimeBySKUs from '@salesforce/apex/ProductController.fetchPBEsRealtimeBySKUs';
+//import fetchProductFamilies from '@salesforce/apex/ProductController.fetchProductFamilies';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 
 export default class ProductInformationDisplay extends LightningElement {
@@ -61,6 +60,8 @@ export default class ProductInformationDisplay extends LightningElement {
         pageNumber: this.pageNumber,
         pageSize: this.pageSize,
         searchQuery: this.searchKey,
+        // if your apex still supports selectedFamilies, you can pass it;
+        // otherwise server ignores unknown param. Keep as-is if controller expects it.
         selectedFamilies: this.selectedFamilies,
         sortField: 'Name',
         sortDir: 'ASC'
@@ -69,10 +70,47 @@ export default class ProductInformationDisplay extends LightningElement {
       if (resp && resp.records) {
         this.totalSize = resp.totalSize || 0;
 
+        // Map server records into UI-friendly product objects.
+        // Server returns ProductDTO with pbes: [{ unitPrice, pricebookName, isFetchedFromOrg, ... }, ...]
+        const mapped = resp.records.map(r => {
+          // safe defaults
+          const pbes = Array.isArray(r.pbes) ? r.pbes : [];
+          // pick a display price: prefer first PBE unitPrice if present
+          const displayPrice = (pbes.length > 0 && pbes[0].unitPrice != null) ? pbes[0].unitPrice : r.price != null ? r.price : null;
+
+          return {
+            id: r.id,
+            name: r.name,
+            productCode: r.productCode,
+            description: r.description,
+            family: r.family,
+            isActive: r.isActive,
+            sku: r.sku,
+            uom: r.uom,
+            productImage: r.productImage,
+            price: displayPrice,
+            pricebookId: r.pricebookId || null,
+            // include full PBE list and flag on each PBE: isFetchedFromOrg (true=from org fallback)
+            pbes: pbes.map(p => ({
+              pricebookEntryId: p.pricebookEntryId,
+              pricebookId: p.pricebookId,
+              pricebookName: p.pricebookName,
+              unitPrice: p.unitPrice,
+              isActive: p.isActive,
+              productId: p.productId,
+              productName: p.productName,
+              sku: p.sku,
+              isFetchedFromOrg: !!p.isFetchedFromOrg
+            }))
+          };
+        });
+
         // append new unique records (avoid duplicates)
-        const newRecords = resp.records.filter(r => !this.products.some(p => p.id === r.id));
+        const newRecords = mapped.filter(r => !this.products.some(p => p.id === r.id));
         this.products = this.products.concat(newRecords);
         this.noResults = this.products.length === 0;
+      } else {
+        this.noResults = true;
       }
     } catch (err) {
       this.dispatchEvent(new ShowToastEvent({
