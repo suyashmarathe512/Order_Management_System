@@ -1,9 +1,7 @@
 @RestResource(urlMapping='/products')
 global with sharing class ProductService {
-    // Payload now only needs the recordId from the caller org.
-    // That recordId value corresponds to this org's Product2.ExternalId.
     global class ProductWrapper {
-        global String recordId; // incoming org's record id, equals our Product2.ExternalId
+        global String recordId;
         global String name;
         global String productCode;
         global String description;
@@ -19,7 +17,6 @@ global with sharing class ProductService {
         global Boolean isActive;
         global Boolean useStandardPrice;
     }
-
     class PBEWrapper {
         Id productId;
         Id pricebookId;
@@ -28,20 +25,17 @@ global with sharing class ProductService {
         Boolean useStandardPrice;
         Integer payloadIndex;
     }
-
     @HttpPost
     global static void upsertProducts() {
         RestResponse res = RestContext.response;
         try {
             String requestBody = RestContext.request.requestBody.toString();
             List<ProductWrapper> payload = (List<ProductWrapper>) JSON.deserialize(requestBody, List<ProductWrapper>.class);
-
             if (payload == null || payload.isEmpty()) {
                 res.statusCode = 400;
                 res.responseBody = Blob.valueOf(JSON.serialize(new Map<String,String>{ 'error' => 'Empty payload' }));
                 return;
             }
-
             Set<String> externalIds = new Set<String>();
             Set<String> pbNames = new Set<String>();
             for (ProductWrapper pw : payload) {
@@ -111,6 +105,7 @@ global with sharing class ProductService {
                 if (pw.recordId != null && existingByExternalId.containsKey(pw.recordId)) {
                     Product2 existing = existingByExternalId.get(pw.recordId);
                     existing.Name = pw.name;
+                    existing.ProductCode = pw.productCode;
                     existing.Description = pw.description;
                     existing.Family = pw.family;
                     existing.IsActive = pw.isActive;
@@ -170,7 +165,6 @@ global with sharing class ProductService {
             if (!toUpdateById.isEmpty()) {
                 Database.update(toUpdateById.values(), false);
             }
-
             List<PBEWrapper> desiredPBEs = new List<PBEWrapper>();
             Set<Id> productIdsForPBEs = new Set<Id>();
             Set<Id> pricebookIdsForPBEs = new Set<Id>();
@@ -268,22 +262,6 @@ global with sharing class ProductService {
             }
             if (!pbesToInsert.isEmpty()) Database.insert(pbesToInsert, false);
             if (!pbesToUpdate.isEmpty()) Database.update(pbesToUpdate, false);
-
-            // Escalate a case if there are affected products
-            if (!affectedProducts.isEmpty()) {
-                Group salesTeamGroup = [SELECT Id FROM Group WHERE Name = 'Sales_Team' AND Type = 'Regular' LIMIT 1];
-                if (salesTeamGroup != null) {
-                    Case escalationCase = new Case(
-                        Subject = 'Escalation: Products with PBEs in org but missing in payload',
-                        Description = 'The following products have Pricebook Entries in the org but the payload does not include any PBEs:\n' + String.join(affectedProducts, '\n'),
-                        OwnerId = salesTeamGroup.Id,
-                        Status = 'New',
-                        Origin = 'Web'
-                    );
-                    Database.insert(escalationCase, false);
-                }
-            }
-
             Map<String, Object> resp = new Map<String, Object>{
                 'message' => 'Sync completed (RecordId->ExternalId matching).',
                 'productsInserted' => toInsert.size(),
