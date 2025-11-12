@@ -1,9 +1,9 @@
 import { LightningElement, track } from 'lwc';
 import fetchProducts from '@salesforce/apex/ProductController.fetchProducts';
-//import fetchProductFamilies from '@salesforce/apex/ProductController.fetchProductFamilies';
+import fetchProductFamilies from '@salesforce/apex/ProductController.fetchProductFamilies';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
-
-export default class ProductInformationDisplay extends LightningElement {
+import { NavigationMixin } from 'lightning/navigation';
+export default class ProductInformationDisplay extends NavigationMixin(LightningElement) {
   @track products = [];
   @track pageNumber = 1;
   pageSize = 12;
@@ -12,28 +12,18 @@ export default class ProductInformationDisplay extends LightningElement {
   @track totalSize = 0;
   @track searchKey = '';
   @track noResults = false;
-
-  // cart state
   @track cartItems = [];
-
-  // modal & drawer
   @track showModal = false;
   @track modalProduct = {};
   @track showCart = false;
 
-  // filter modal
   @track showFilterModal = false;
   @track selectedFamilies = [];
   @track availableFamilies = [];
-
-  // skeleton placeholders (array of objects with stable ids)
   skeletons = Array.from({ length: 6 }, (_, i) => ({ id: `sk-${i}` }));
-
   connectedCallback() {
     this.loadProducts(true);
   }
-
-  // computed getters used in template (no inline expressions)
   get cartCount() {
     return this.cartItems.length;
   }
@@ -43,8 +33,6 @@ export default class ProductInformationDisplay extends LightningElement {
   get isCheckoutDisabled() {
     return this.cartCount === 0;
   }
-
-  // load products from Apex with server-side paging
   async loadProducts(reset = true) {
     try {
       if (reset) {
@@ -60,8 +48,6 @@ export default class ProductInformationDisplay extends LightningElement {
         pageNumber: this.pageNumber,
         pageSize: this.pageSize,
         searchQuery: this.searchKey,
-        // if your apex still supports selectedFamilies, you can pass it;
-        // otherwise server ignores unknown param. Keep as-is if controller expects it.
         selectedFamilies: this.selectedFamilies,
         sortField: 'Name',
         sortDir: 'ASC'
@@ -69,13 +55,8 @@ export default class ProductInformationDisplay extends LightningElement {
 
       if (resp && resp.records) {
         this.totalSize = resp.totalSize || 0;
-
-        // Map server records into UI-friendly product objects.
-        // Server returns ProductDTO with pbes: [{ unitPrice, pricebookName, isFetchedFromOrg, ... }, ...]
         const mapped = resp.records.map(r => {
-          // safe defaults
           const pbes = Array.isArray(r.pbes) ? r.pbes : [];
-          // pick a display price: prefer first PBE unitPrice if present
           const displayPrice = (pbes.length > 0 && pbes[0].unitPrice != null) ? pbes[0].unitPrice : r.price != null ? r.price : null;
 
           return {
@@ -90,7 +71,6 @@ export default class ProductInformationDisplay extends LightningElement {
             productImage: r.productImage,
             price: displayPrice,
             pricebookId: r.pricebookId || null,
-            // include full PBE list and flag on each PBE: isFetchedFromOrg (true=from org fallback)
             pbes: pbes.map(p => ({
               pricebookEntryId: p.pricebookEntryId,
               pricebookId: p.pricebookId,
@@ -104,8 +84,6 @@ export default class ProductInformationDisplay extends LightningElement {
             }))
           };
         });
-
-        // append new unique records (avoid duplicates)
         const newRecords = mapped.filter(r => !this.products.some(p => p.id === r.id));
         this.products = this.products.concat(newRecords);
         this.noResults = this.products.length === 0;
@@ -123,13 +101,10 @@ export default class ProductInformationDisplay extends LightningElement {
       this.isLoadingMore = false;
     }
   }
-
   onSearchChange(event) {
     this.searchKey = event.target.value;
-    // debounce respected by lightning-input; reload
     this.loadProducts(true);
   }
-
   onGridScroll(e) {
     const grid = e.currentTarget;
     if (grid.scrollTop + grid.clientHeight >= grid.scrollHeight - 200 && !this.isLoadingMore && this.products.length < this.totalSize) {
@@ -137,40 +112,28 @@ export default class ProductInformationDisplay extends LightningElement {
       this.loadProducts(false);
     }
   }
-
-  // cart behaviors
   handleAddToCart(e) {
     const prod = e.detail;
     if (!prod || !prod.id) {
       this.dispatchEvent(new ShowToastEvent({ title: 'Invalid item', message: 'Cannot add item to cart', variant: 'error' }));
       return;
     }
-
-    // add if not present — simple qty=1 semantics
-    if (!this.cartItems.some(i => i.id === prod.id)) {
-      this.cartItems = [...this.cartItems, { ...prod, qty: 1 }];
-      this.dispatchEvent(new ShowToastEvent({ title: 'Added to cart', message: prod.name || 'Product added', variant: 'success' }));
-    } else {
-      this.dispatchEvent(new ShowToastEvent({ title: 'Already in cart', message: prod.name || 'Item already in cart', variant: 'info' }));
-    }
+    this.cartItems = [...this.cartItems, { ...prod, qty: 1 }];
+    this.dispatchEvent(new ShowToastEvent({ title: 'Added to cart', message: prod.name || 'Product added', variant: 'success' }));
   }
 
   handleViewDetails(e) {
     this.modalProduct = e.detail;
     this.showModal = true;
   }
-
   closeModal() {
     this.showModal = false;
     this.modalProduct = {};
   }
-
   modalAddToCart() {
     this.handleAddToCart({ detail: this.modalProduct });
     this.closeModal();
   }
-
-  // drawer handlers
   openCart() {
     this.showCart = true;
   }
@@ -182,7 +145,6 @@ export default class ProductInformationDisplay extends LightningElement {
   closeCart() {
     this.showCart = false;
   }
-
   removeFromCart(evt) {
     const idToRemove = evt.currentTarget.dataset.id;
     if (!idToRemove) return;
@@ -190,12 +152,16 @@ export default class ProductInformationDisplay extends LightningElement {
   }
 
   onCheckout() {
-    // Place-holder — integrate with Order creation flow or Apex
     this.dispatchEvent(new ShowToastEvent({ title: 'Checkout', message: `Proceeding with ${this.cartCount} items`, variant: 'success' }));
     this.closeCart();
+    const cartData = this.cartItems || [];
+    const validatedCart = cartData.filter(item => item && item.id && item.sku);
+    sessionStorage.setItem('cart', JSON.stringify(validatedCart));
+    this[NavigationMixin.Navigate]({
+      type: 'standard__webPage',
+      attributes: { url: '/lightning/n/Checkout_Page' }
+    });
   }
-
-  // filter panel methods
   async openFilterPanel() {
     try {
       const families = await fetchProductFamilies();
@@ -212,11 +178,9 @@ export default class ProductInformationDisplay extends LightningElement {
       }));
     }
   }
-
   closeFilterPanel() {
     this.showFilterModal = false;
   }
-
   handleFamilyChange(event) {
     const family = event.target.value;
     const isChecked = event.target.checked;
@@ -225,7 +189,6 @@ export default class ProductInformationDisplay extends LightningElement {
     } else {
       this.selectedFamilies = this.selectedFamilies.filter(f => f !== family);
     }
-    // Update the availableFamilies array to reflect the change
     this.availableFamilies = this.availableFamilies.map(f => ({
       ...f,
       selected: this.selectedFamilies.includes(f.name)
@@ -242,6 +205,14 @@ export default class ProductInformationDisplay extends LightningElement {
   }
 
   onCreateOrder() {
-    // navigate to order creation or open order modal
+  }
+  goToCheckout() {
+    sessionStorage.setItem('cart', JSON.stringify(this.cartItems || []));
+    this[NavigationMixin.Navigate]({
+      type: 'standard__component',
+      attributes: {
+        componentName: 'c__checkoutPage'
+      }
+    });
   }
 }

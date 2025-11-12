@@ -1,36 +1,96 @@
 public with sharing class ProductController {
     private static final String NAMED_CREDENTIAL_ENDPOINT = 'callout:ServerOrg/product/pbeinfo';
-
     @AuraEnabled
-    public static ProductPage fetchProducts(Integer pageNumber, Integer pageSize, String searchQuery, String sortField, String sortDir) {
+    public static ProductPage fetchProducts(Integer pageNumber, Integer pageSize, String searchQuery, List<String> selectedFamilies, String sortField, String sortDir) {
         if (pageNumber == null) pageNumber = 1;
         if (pageSize == null) pageSize = 12;
         Integer offsetRows = (pageNumber - 1) * pageSize;
-
         String likePattern;
         Boolean hasSearch = false;
+        Integer total = 0;
         if (String.isNotBlank(searchQuery)) {
             hasSearch = true;
             likePattern = '%' + searchQuery + '%';
         }
-
-        // Query products
-        List<Product2> products = hasSearch
-            ? [SELECT Id, Name, ProductCode, Description, Family, IsActive, QuantityUnitOfMeasure, StockKeepingUnit, ProductImage__c
-               FROM Product2
-               WHERE IsActive = true
-                 AND (Name LIKE :likePattern OR ProductCode LIKE :likePattern OR Description LIKE :likePattern)
-               ORDER BY Name ASC
-               LIMIT :pageSize OFFSET :offsetRows]
-            : [SELECT Id, Name, ProductCode, Description, Family, IsActive, QuantityUnitOfMeasure, StockKeepingUnit, ProductImage__c
-               FROM Product2
-               WHERE IsActive = true
-               ORDER BY Name ASC
-               LIMIT :pageSize OFFSET :offsetRows];
-
-        Integer total = [SELECT count() FROM Product2 WHERE IsActive = true];
-
-        // Build DTOs & collect SKUs
+        List<Product2> products;
+        if (selectedFamilies != null && !selectedFamilies.isEmpty()) {
+            if (hasSearch) {
+                products = [SELECT 
+                        Id, Name, ProductCode, Description, Family, IsActive, QuantityUnitOfMeasure, StockKeepingUnit, ProductImage__c
+                    FROM 
+                        Product2
+                    WHERE 
+                        IsActive = true
+                     AND 
+                            (Name LIKE :likePattern OR ProductCode LIKE :likePattern OR Description LIKE :likePattern)
+                     AND 
+                        Family IN :selectedFamilies
+                    ORDER BY 
+                        Name ASC
+                    LIMIT 
+                        :pageSize 
+                    OFFSET 
+                        :offsetRows];
+            } else {
+                products = [SELECT 
+                        Id, Name, ProductCode, Description, Family, IsActive, QuantityUnitOfMeasure, StockKeepingUnit, ProductImage__c
+                    FROM 
+                        Product2
+                    WHERE    
+                        IsActive = true
+                     AND 
+                        Family IN :selectedFamilies
+                    ORDER BY 
+                        Name 
+                    ASC
+                    LIMIT   
+                        :pageSize 
+                    OFFSET 
+                        :offsetRows];
+            }
+            // Count total products matching the family filter (and search if applicable)
+            if (hasSearch) {
+                Integer totalFiltered = [SELECT COUNT() FROM Product2 WHERE IsActive = true AND (Name LIKE :likePattern OR ProductCode LIKE :likePattern OR Description LIKE :likePattern) AND Family IN :selectedFamilies];
+                total = totalFiltered;
+            } else {
+                Integer totalFiltered = [SELECT COUNT() FROM Product2 WHERE IsActive = true AND Family IN :selectedFamilies];
+                total = totalFiltered;
+            }
+        } else {
+            if (hasSearch) {
+                products = [SELECT 
+                        Id, Name, ProductCode, Description, Family, IsActive, QuantityUnitOfMeasure, StockKeepingUnit, ProductImage__c
+                    FROM 
+                        Product2
+                    WHERE 
+                        IsActive = true
+                     AND 
+                            (Name LIKE :likePattern OR ProductCode LIKE :likePattern OR Description LIKE :likePattern)
+                    ORDER BY 
+                        Name ASC
+                    LIMIT 
+                        :pageSize 
+                    OFFSET 
+                        :offsetRows];
+            } else {
+                products = [SELECT 
+                        Id, Name, ProductCode, Description, Family, IsActive, QuantityUnitOfMeasure, StockKeepingUnit, ProductImage__c
+                    FROM 
+                        Product2
+                    WHERE    
+                        IsActive = true
+                    ORDER BY 
+                        Name 
+                    ASC
+                    LIMIT   
+                        :pageSize 
+                    OFFSET 
+                        :offsetRows];
+            }
+            // Count all active products
+            Integer totalFiltered = [SELECT COUNT() FROM Product2 WHERE IsActive = true];
+            total = totalFiltered;
+        }
         List<ProductDTO> dtos = new List<ProductDTO>();
         Map<String, Id> skuToProductId = new Map<String, Id>();
         for (Product2 p : products) {
@@ -48,27 +108,19 @@ public with sharing class ProductController {
             if (!String.isBlank(dto.sku)) skuToProductId.put(dto.sku.trim(), p.Id);
             dtos.add(dto);
         }
-
         if (skuToProductId.isEmpty()) return new ProductPage(dtos, total, pageNumber, pageSize);
-
-        // Prepare SKU list
         List<String> skuList = new List<String>(skuToProductId.keySet());
         String payload = JSON.serialize(skuList);
-
         Map<String, List<ProductPBEInfo>> combinedPbeMap = new Map<String, List<ProductPBEInfo>>();
         Boolean calloutSucceeded = false;
-
-        // ---- Call external endpoint ----
         try {
             HttpRequest req = new HttpRequest();
             req.setEndpoint(NAMED_CREDENTIAL_ENDPOINT);
             req.setMethod('POST');
             req.setHeader('Content-Type', 'application/json');
             req.setBody(payload);
-
             Http http = new Http();
             HttpResponse resp = http.send(req);
-
             if (resp.getStatusCode() >= 200 && resp.getStatusCode() < 300) {
                 Map<String, Object> raw = (Map<String, Object>) JSON.deserializeUntyped(resp.getBody());
                 if (raw != null) {
@@ -83,7 +135,6 @@ public with sharing class ProductController {
                         for (Object item : arr) {
                             if (!(item instanceof Map<String, Object>)) continue;
                             Map<String, Object> m = (Map<String, Object>) item;
-
                             ProductPBEInfo pi = new ProductPBEInfo();
                             pi.pricebookEntryId = (m.containsKey('pricebookEntryId') && m.get('pricebookEntryId') != null) ? (Id) String.valueOf(m.get('pricebookEntryId')) : null;
                             pi.pricebookId = (m.containsKey('pricebookId') && m.get('pricebookId') != null) ? (Id) String.valueOf(m.get('pricebookId')) : null;
@@ -94,7 +145,7 @@ public with sharing class ProductController {
                             pi.productId = (m.containsKey('productId') && m.get('productId') != null) ? (Id) String.valueOf(m.get('productId')) : null;
                             pi.productName = (String) m.get('productName');
                             pi.sku = (String) m.get('sku');
-                            pi.isFetchedFromOrg = false; // <-- fetched from external API
+                            pi.isFetchedFromOrg = false;
                             parsedList.add(pi);
                         }
                         combinedPbeMap.put(k, parsedList);
@@ -105,14 +156,11 @@ public with sharing class ProductController {
         } catch (Exception ex) {
             calloutSucceeded = false;
         }
-
-        // ---- Fallback for missing SKUs ----
         Set<String> fallbackSkus = new Set<String>();
         for (String sku : skuToProductId.keySet()) {
             if (!calloutSucceeded || !combinedPbeMap.containsKey(sku) || combinedPbeMap.get(sku).isEmpty())
                 fallbackSkus.add(sku);
         }
-
         if (!fallbackSkus.isEmpty()) {
             Set<Id> prodIds = new Set<Id>();
             for (String s : fallbackSkus)
@@ -120,12 +168,19 @@ public with sharing class ProductController {
 
             if (!prodIds.isEmpty()) {
                 List<PricebookEntry> localPbes = [
-                    SELECT Id, Product2Id, Pricebook2Id, Pricebook2.Name, UnitPrice, IsActive
-                    FROM PricebookEntry
-                    WHERE Product2Id IN :prodIds AND IsActive = true
-                    ORDER BY UnitPrice ASC
+                    SELECT 
+                        Id, Product2Id, Pricebook2Id, Pricebook2.Name, UnitPrice, IsActive
+                    FROM 
+                        PricebookEntry
+                    WHERE 
+                        Product2Id 
+                    IN 
+                        :prodIds 
+                    AND 
+                        IsActive = true
+                    ORDER BY 
+                        UnitPrice ASC
                 ];
-
                 Map<Id, PricebookEntry> lowestByProd = new Map<Id, PricebookEntry>();
                 for (PricebookEntry pbe : localPbes)
                     if (!lowestByProd.containsKey(pbe.Product2Id))
@@ -153,15 +208,13 @@ public with sharing class ProductController {
                             }
                         }
                         pi.sku = sku;
-                        pi.isFetchedFromOrg = true; // <-- fetched from org (fallback)
+                        pi.isFetchedFromOrg = true; 
                         listForSku.add(pi);
                     }
                     combinedPbeMap.put(sku, listForSku);
                 }
             }
         }
-
-        // ---- Attach to DTOs ----
         for (ProductDTO dto : dtos) {
             if (String.isBlank(dto.sku)) continue;
             String key = dto.sku.trim();
@@ -169,11 +222,8 @@ public with sharing class ProductController {
                 ? combinedPbeMap.get(key)
                 : new List<ProductPBEInfo>();
         }
-
         return new ProductPage(dtos, total, pageNumber, pageSize);
     }
-
-    // ---------------- DTOs ----------------
     public class ProductDTO {
         @AuraEnabled public Id id;
         @AuraEnabled public String name;
@@ -186,7 +236,6 @@ public with sharing class ProductController {
         @AuraEnabled public String productImage;
         @AuraEnabled public List<ProductPBEInfo> pbes;
     }
-
     public class ProductPBEInfo {
         @AuraEnabled public Id pricebookEntryId;
         @AuraEnabled public Id pricebookId;
@@ -196,9 +245,8 @@ public with sharing class ProductController {
         @AuraEnabled public Id productId;
         @AuraEnabled public String productName;
         @AuraEnabled public String sku;
-        @AuraEnabled public Boolean isFetchedFromOrg; // ✅ shows if PBE was fetched from org (fallback)
+        @AuraEnabled public Boolean isFetchedFromOrg;
     }
-
     public class ProductPage {
         @AuraEnabled public List<ProductDTO> records;
         @AuraEnabled public Integer totalSize;
@@ -210,5 +258,16 @@ public with sharing class ProductController {
             this.pageNumber = pageNum;
             this.pageSize = pSize;
         }
+    }
+    @AuraEnabled
+    public static List<String> fetchProductFamilies() {
+        Set<String> families = new Set<String>();
+        List<Product2> products = [SELECT Family FROM Product2 WHERE Family != null ORDER BY Family];
+        for (Product2 product : products) {
+            families.add(product.Family);
+        }
+        List<String> sortedFamilies = new List<String>(families);
+        sortedFamilies.sort();
+        return sortedFamilies;
     }
 }

@@ -7,9 +7,7 @@ export default class ProductCard extends LightningElement {
     const name = this.product?.name || this.product?.Name || 'Product';
     return `Product: ${name}`;
   }
-
   get productImage() {
-    // Accept both API-name and camelCase DTO property
     return this.product?.ProductImage__c || this.product?.productImage || null;
   }
 
@@ -26,15 +24,23 @@ export default class ProductCard extends LightningElement {
       return `₹${price}`;
     }
   }
-
-  // NEW: boolean flag to indicate if PBE info used fallback from org
   get isFetchedFromOrg() {
-    // support different casing and ensure boolean
     return !!(this.product && (this.product.isFetchedFromOrg === true || this.product.isPriceFromOrg === true));
   }
 
   onAdd() {
-    this.dispatchEvent(new CustomEvent('addtocart', { detail: this.product }));
+    const cartItem = {
+      id: this.product.id,
+      name: this.product.name,
+      sku: this.product.sku,
+      price: this.product.price,
+      qty: 1
+    };
+    if (!cartItem.sku) {
+      console.error('Product has no SKU:', this.product);
+      return;
+    }
+    this.dispatchEvent(new CustomEvent('addtocart', { detail: cartItem }));
   }
 
   onView() {

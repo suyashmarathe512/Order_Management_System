@@ -1,0 +1,62 @@
+<apex:page standardController="Order" extensions="InvoicePdfExtension" renderAs="pdf" showHeader="false" applyBodyTag="false">
+  <style>
+    body { font-family: Arial, sans-serif; font-size:12px; color:#222; }
+    .header { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; }
+    .company { font-weight:700; }
+    table { width:100%; border-collapse: collapse; margin-top:10px; }
+    th, td { border:1px solid #ddd; padding:6px; text-align:left; }
+    th { background:#f7f7f7; }
+    .right { text-align:right; }
+  </style>
+  <apex:pageBlock >
+    <div class="header">
+      <div class="company">CRM Team Innovation<br/>Address: Balewadi<br/>Pune</div>
+      <div class="invoice">
+        <div style="font-size:18px;font-weight:700;">Invoice</div>
+        <div>Order #: {!Order.OrderNumber}</div>
+        <div>Date: {!TEXT(TODAY())}</div>
+      </div>
+    </div>
+
+    <div>
+      <strong>Billed To:</strong><br/>
+      <apex:outputText value="{!IF(NOT(ISNULL(Order.AccountId)), Order.Account.Name, '—')}" />
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>SKU</th>
+          <th>Product</th>
+          <th>Qty</th>
+          <th class="right">Unit Price</th>
+          <th class="right">Line Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        <apex:repeat value="{!Order.OrderItems}" var="li">
+          <tr>
+            <td><apex:outputField value="{!li.PricebookEntry.Product2.StockKeepingUnit}" /></td>
+            <td><apex:outputField value="{!li.PricebookEntry.Product2.Name}" /></td>
+            <td><apex:outputField value="{!li.Quantity}" /></td>
+            <td class="right">{!li.UnitPrice}</td>
+            <td class="right">{!ROUND(li.UnitPrice * li.Quantity, 2)}</td>
+          </tr>
+        </apex:repeat>
+      </tbody>
+    </table>
+
+    <div style="margin-top:10px; float:right; width:40%;">
+      <table style="width:100%;">
+        <tr><td>Subtotal</td><td class="right">
+          <!-- Simple subtotal calc -->
+          {!ROUND(subtotal,2)}
+        </td></tr>
+        <tr><td>Taxes</td><td class="right">0.00</td></tr>
+        <tr><td><strong>Total</strong></td><td class="right"><strong>{!ROUND(total,2)}</strong></td></tr>
+      </table>
+    </div>
+
+    <div style="clear:both;"></div>
+  </apex:pageBlock>
+</apex:page>
