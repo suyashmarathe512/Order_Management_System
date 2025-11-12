@@ -3,18 +3,20 @@ import { LightningElement, api } from 'lwc';
 export default class ProductCard extends LightningElement {
   @api product;
 
-  // Accessible aria-label for the article element
   get ariaLabel() {
     const name = this.product?.name || this.product?.Name || 'Product';
     return `Product: ${name}`;
   }
 
-  // Prefer formula field ProductImage__c (or productImage mapped from Apex DTO)
   get productImage() {
+    // Accept both API-name and camelCase DTO property
     return this.product?.ProductImage__c || this.product?.productImage || null;
   }
 
-  // Format price neatly. Uses Intl when available.
+  get imageHidden() {
+    return !this.productImage;
+  }
+
   get formattedPrice() {
     const price = this.product?.price;
     if (price === null || price === undefined) return '—';

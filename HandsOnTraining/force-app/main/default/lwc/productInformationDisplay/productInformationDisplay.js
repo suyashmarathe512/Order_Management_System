@@ -1,5 +1,7 @@
 import { LightningElement, track } from 'lwc';
 import fetchProducts from '@salesforce/apex/ProductController.fetchProducts';
+import fetchProductFamilies from '@salesforce/apex/ProductController.fetchProductFamilies';
+import fetchPBEsRealtimeBySKUs from '@salesforce/apex/ProductController.fetchPBEsRealtimeBySKUs';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 
 export default class ProductInformationDisplay extends LightningElement {
@@ -19,6 +21,11 @@ export default class ProductInformationDisplay extends LightningElement {
   @track showModal = false;
   @track modalProduct = {};
   @track showCart = false;
+
+  // filter modal
+  @track showFilterModal = false;
+  @track selectedFamilies = [];
+  @track availableFamilies = [];
 
   // skeleton placeholders (array of objects with stable ids)
   skeletons = Array.from({ length: 6 }, (_, i) => ({ id: `sk-${i}` }));
@@ -54,6 +61,7 @@ export default class ProductInformationDisplay extends LightningElement {
         pageNumber: this.pageNumber,
         pageSize: this.pageSize,
         searchQuery: this.searchKey,
+        selectedFamilies: this.selectedFamilies,
         sortField: 'Name',
         sortDir: 'ASC'
       });
@@ -149,10 +157,52 @@ export default class ProductInformationDisplay extends LightningElement {
     this.closeCart();
   }
 
-  // placeholders
-  openFilterPanel() {
-    // implement off-canvas filters if needed
+  // filter panel methods
+  async openFilterPanel() {
+    try {
+      const families = await fetchProductFamilies();
+      this.availableFamilies = families.map(family => ({
+        name: family,
+        selected: this.selectedFamilies.includes(family)
+      }));
+      this.showFilterModal = true;
+    } catch (err) {
+      this.dispatchEvent(new ShowToastEvent({
+        title: 'Error loading families',
+        message: err?.body?.message || err?.message || 'Unknown error',
+        variant: 'error'
+      }));
+    }
   }
+
+  closeFilterPanel() {
+    this.showFilterModal = false;
+  }
+
+  handleFamilyChange(event) {
+    const family = event.target.value;
+    const isChecked = event.target.checked;
+    if (isChecked) {
+      this.selectedFamilies = [...this.selectedFamilies, family];
+    } else {
+      this.selectedFamilies = this.selectedFamilies.filter(f => f !== family);
+    }
+    // Update the availableFamilies array to reflect the change
+    this.availableFamilies = this.availableFamilies.map(f => ({
+      ...f,
+      selected: this.selectedFamilies.includes(f.name)
+    }));
+  }
+
+  isFamilySelected(family) {
+    return this.selectedFamilies.includes(family);
+  }
+
+  applyFilters() {
+    this.loadProducts(true);
+    this.closeFilterPanel();
+  }
+
   onCreateOrder() {
     // navigate to order creation or open order modal
   }
