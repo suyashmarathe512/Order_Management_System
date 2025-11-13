@@ -6,11 +6,11 @@ global with sharing class ProductService {
         global String productCode;
         global String description;
         global String family;
+        global String sku;
         global Boolean isActive;
         global String quantityUnitOfMeasure;
         global List<PricebookEntryWrapper> pricebookEntries;
     }
-
     global class PricebookEntryWrapper {
         global String pricebook2Name;
         global Decimal unitPrice;
@@ -49,7 +49,7 @@ global with sharing class ProductService {
             Map<String, Product2> existingByExternalId = new Map<String, Product2>();
             if (!externalIds.isEmpty()) {
                 for (Product2 p : [SELECT 
-                                        Id, ExternalId, Name, Description, Family, IsActive, QuantityUnitOfMeasure
+                                        Id,StockKeepingUnit, ExternalId, Name, Description, Family, IsActive, QuantityUnitOfMeasure
                                    FROM 
                                         Product2 
                                     WHERE 
