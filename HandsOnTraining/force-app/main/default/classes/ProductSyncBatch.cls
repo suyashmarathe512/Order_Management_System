@@ -1,4 +1,4 @@
-public class ProductSyncBatch implements Database.Batchable<sObject>, Database.AllowsCallouts {
+global with sharing class ProductSyncBatch implements Database.Batchable<SObject>, Database.AllowsCallouts {
     public class ProductWrapper {
         public String name;
         public String productCode;
@@ -6,6 +6,7 @@ public class ProductSyncBatch implements Database.Batchable<sObject>, Database.A
         public String family;
         public Boolean isActive;
         public String recordId;
+        public String sku;
         public String quantityUnitOfMeasure;
         public List<PricebookEntryWrapper> pricebookEntries;
     }
@@ -16,16 +17,16 @@ public class ProductSyncBatch implements Database.Batchable<sObject>, Database.A
         public Boolean isActive;
         public Boolean useStandardPrice;
     }
-    public Database.QueryLocator start(Database.BatchableContext bc) {
-        String query = 'SELECT Id, Name, ProductCode, Description, Family, IsActive, ExternalId, QuantityUnitOfMeasure, ' +
+    global Database.QueryLocator start(Database.BatchableContext bc) {
+        String query = 'SELECT Id, Name, ProductCode, StockKeepingUnit, Description, Family, IsActive, QuantityUnitOfMeasure, ' +
             '(SELECT Id, Pricebook2Id, Pricebook2.Name, UnitPrice, IsActive, UseStandardPrice FROM PricebookEntries) ' +
-            'FROM Product2';
+            'FROM Product2 WITH USER_MODE ORDER BY Id';
         return Database.getQueryLocator(query);
     }
-
-    public void execute(Database.BatchableContext bc, List<Product2> scope) {
+    global void execute(Database.BatchableContext bc, List<SObject> scope) {
         List<ProductWrapper> payload = new List<ProductWrapper>();
-        for (Product2 p : scope) {
+        for (SObject sobj : scope) {
+            Product2 p = (Product2)sobj;
             ProductWrapper pw = new ProductWrapper();
             pw.name = p.Name;
             pw.productCode = p.ProductCode;
@@ -33,6 +34,7 @@ public class ProductSyncBatch implements Database.Batchable<sObject>, Database.A
             pw.family = p.Family;
             pw.isActive = p.IsActive;
             pw.recordId = p.Id;
+            pw.sku = p.StockKeepingUnit;
             pw.quantityUnitOfMeasure = p.QuantityUnitOfMeasure;
             pw.pricebookEntries = new List<PricebookEntryWrapper>();
             for (PricebookEntry pe : p.PricebookEntries) {
@@ -54,14 +56,9 @@ public class ProductSyncBatch implements Database.Batchable<sObject>, Database.A
         Http http = new Http();
         try {
             HttpResponse res = http.send(req);
-            System.debug('Response Code: ' + res.getStatusCode() + ' Body: ' + res.getBody());
         } catch (Exception e) {
-            System.debug('Callout failed: ' + e.getMessage());
         }
     }
-
-    public void finish(Database.BatchableContext bc) {
-        System.debug(RestContext.Response);
-        System.debug('Product Sync Batch Completed.');
+    global void finish(Database.BatchableContext bc) {
     }
 }
