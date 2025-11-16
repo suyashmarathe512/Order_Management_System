@@ -1,279 +1,115 @@
-@RestResource(urlMapping='/products')
+/***************************************************************************************************
+* @Author:        CRM Developer
+* @className:     ProductService
+* @Description:   REST service to expose Product2 and related PricebookEntry data as JSON.
+***************************************************************************************************/
+@RestResource(urlMapping='/Products')
 global with sharing class ProductService {
-    global class ProductWrapper {
-        global String recordId;
-        global String name;
-        global String productCode;
-        global String description;
-        global String family;
-        global String sku;
-        global Boolean isActive;
-        global String quantityUnitOfMeasure;
-        global List<PricebookEntryWrapper> pricebookEntries;
-    }
-    global class PricebookEntryWrapper {
-        global String pricebook2Name;
-        global Decimal unitPrice;
-        global Boolean isActive;
-        global Boolean useStandardPrice;
-    }
-    class PBEWrapper {
-        Id productId;
-        Id pricebookId;
-        Decimal unitPrice;
-        Boolean isActive;
-        Boolean useStandardPrice;
-        Integer payloadIndex;
-    }
-    @HttpPost
-    global static void upsertProducts() {
+/************************************************************************************************
+ * @author         CRM Developer
+ * @methodname     getProductsWithPBE
+ * @description    Handles HTTP GET. Queries Product2 with related PricebookEntries and returns a JSON payload.
+ ***********************************************************************************************/
+@HttpGet
+global static void getProductsWithPBE() {
         RestResponse res = RestContext.response;
+        ResponseWrapper responseWrapper = new ResponseWrapper();
+        responseWrapper.status = 'ERROR';
+        responseWrapper.message = 'Unknown error';
+        responseWrapper.products = new List<ProductWrapper>();
         try {
-            String requestBody = RestContext.request.requestBody.toString();
-            List<ProductWrapper> payload = (List<ProductWrapper>) JSON.deserialize(requestBody, List<ProductWrapper>.class);
-            if (payload == null || payload.isEmpty()) {
-                res.statusCode = 400;
-                res.responseBody = Blob.valueOf(JSON.serialize(new Map<String,String>{ 'error' => 'Empty payload' }));
-                return;
-            }
-            Set<String> externalIds = new Set<String>();
-            Set<String> pbNames = new Set<String>();
-            for (ProductWrapper pw : payload) {
-                if (pw.recordId != null) externalIds.add(pw.recordId);
-                if (pw.pricebookEntries != null) {
-                    for (PricebookEntryWrapper pbw : pw.pricebookEntries) {
-                        if (pbw.pricebook2Name != null) pbNames.add(pbw.pricebook2Name);
-                    }
-                }
-            }
-            Map<String, Product2> existingByExternalId = new Map<String, Product2>();
-            if (!externalIds.isEmpty()) {
-                for (Product2 p : [SELECT 
-                                        Id,StockKeepingUnit, ExternalId, Name, Description, Family, IsActive, QuantityUnitOfMeasure
-                                   FROM 
-                                        Product2 
-                                    WHERE 
-                                        ExternalId 
-                                    IN 
-                                        :externalIds]) {
-                    if (p.ExternalId != null) existingByExternalId.put(p.ExternalId, p);
-                }
-            }
-            Map<String, Id> pricebookNameToId = new Map<String, Id>();
-            if (!pbNames.isEmpty()) {
-                for (Pricebook2 pb : [SELECT
-                                            Id, Name
-                                    FROM
-                                        Pricebook2
-                                    WHERE
-                                        Name
-                                    IN
-                                        :pbNames]) {
-                    pricebookNameToId.put(pb.Name, pb.Id);
-                }
-            }
-            Map<Id, List<PricebookEntry>> productPBEs = new Map<Id, List<PricebookEntry>>();
-            if (!existingByExternalId.isEmpty()) {
-                Set<Id> existingProductIds = new Set<Id>();
-                for (Product2 p : existingByExternalId.values()) {
-                    existingProductIds.add(p.Id);
-                }
-                for (PricebookEntry pbe : [SELECT 
-                                                Id, Product2Id, Pricebook2Id, UnitPrice, IsActive, UseStandardPrice
-                                           FROM 
-                                                PricebookEntry
-                                           WHERE 
-                                                Product2Id 
-                                            IN 
-                                                :existingProductIds]) {
-                    if (!productPBEs.containsKey(pbe.Product2Id)) {
-                        productPBEs.put(pbe.Product2Id, new List<PricebookEntry>());
-                    }
-                    productPBEs.get(pbe.Product2Id).add(pbe);
-                }
-            }
-            List<String> affectedProducts = new List<String>();
-            List<Product2> toInsert = new List<Product2>();
-            Map<Id, Product2> toUpdateById = new Map<Id, Product2>();
+            List<Product2> products = [
+                SELECT
+                    Id,Name,ProductCode,Description,IsActive,Family,StockKeepingUnit,
+                    (SELECT
+                        Id,UnitPrice,IsActive,UseStandardPrice,Product2Id,Pricebook2.Name
+                     FROM 
+                        PricebookEntries)
+                FROM 
+                    Product2
+            ];
 
-            Map<String, Id> productKeyToId = new Map<String, Id>();
+            if (products != null && !products.isEmpty()) {
+                for (Product2 p : products) {
+                    ProductWrapper pw = new ProductWrapper();
+                    pw.Id = p.Id;
+                    pw.Name = p.Name;
+                    pw.ProductCode = p.ProductCode;
+                    pw.Description = p.Description;
+                    pw.IsActive = (p.IsActive == null) ? false : p.IsActive;
+                    pw.Family = p.Family;
+                    pw.StockKeepingUnit = p.StockKeepingUnit;
+                    pw.pricebookEntries = new List<PricebookEntryWrapper>();
 
-            List<Integer> insertPayloadIndices = new List<Integer>();
+                    if (p.PricebookEntries != null && !p.PricebookEntries.isEmpty()) {
+                        for (PricebookEntry pe : p.PricebookEntries) {
+                            PricebookEntryWrapper pbe = new PricebookEntryWrapper();
+                            pbe.Id = pe.Id;
+                            pbe.UnitPrice = pe.UnitPrice;
+                            pbe.IsActive = (pe.IsActive == null) ? false : pe.IsActive;
+                            pbe.UseStandardPrice = (pe.UseStandardPrice == null) ? false : pe.UseStandardPrice;
+                            pbe.Product2Id = pe.Product2Id;
+                            pbe.PricebookName = (pe.Pricebook2 != null) ? pe.Pricebook2.Name : null;
 
-            for (Integer i = 0; i < payload.size(); i++) {
-                ProductWrapper pw = payload[i];
-                if (pw.recordId != null && existingByExternalId.containsKey(pw.recordId)) {
-                    Product2 existing = existingByExternalId.get(pw.recordId);
-                    existing.Name = pw.name;
-                    existing.ProductCode = pw.productCode;
-                    existing.Description = pw.description;
-                    existing.Family = pw.family;
-                    existing.IsActive = pw.isActive;
-                    existing.QuantityUnitOfMeasure = pw.quantityUnitOfMeasure;
-                    existing.ExternalId = pw.recordId;
-                    toUpdateById.put(existing.Id, existing);
-                    productKeyToId.put('EXTID::' + pw.recordId, existing.Id);
-                    if (productPBEs.containsKey(existing.Id) && !productPBEs.get(existing.Id).isEmpty() &&
-                        (pw.pricebookEntries == null || pw.pricebookEntries.isEmpty())) {
-                        affectedProducts.add('ExternalId: ' + pw.recordId + ', Name: ' + existing.Name);
-                    }
-                } else {
-                    Product2 newP = new Product2(
-                        Name = pw.name,
-                        ProductCode = pw.productCode,
-                        Description = pw.description,
-                        Family = pw.family,
-                        IsActive = pw.isActive,
-                        QuantityUnitOfMeasure = pw.quantityUnitOfMeasure,
-                        ExternalId = pw.recordId);
-                    toInsert.add(newP);
-                    insertPayloadIndices.add(i);
-                    productKeyToId.put('PAYIDX::' + String.valueOf(i), null);
-                    productKeyToId.put('EXTID::' + pw.recordId, null);
-                }
-            }
-
-            if (!toInsert.isEmpty()) {
-                Database.SaveResult[] insRes = Database.insert(toInsert, false);
-                for (Integer j = 0; j < insRes.size(); j++) {
-                    Database.SaveResult sr = insRes[j];
-                    Integer payloadIndex = insertPayloadIndices[j];
-                    if (sr.isSuccess()) {
-                        Id newId = sr.getId();
-                        productKeyToId.put('PAYIDX::' + String.valueOf(payloadIndex), newId);
-                        ProductWrapper pw = payload[payloadIndex];
-                        if (pw.recordId != null) productKeyToId.put('EXTID::' + pw.recordId, newId);
-                    } else {
-                    }
-                }
-            }
-            Set<String> allExternalIdsToCheck = new Set<String>();
-            for (ProductWrapper pw : payload) if (pw.recordId != null) allExternalIdsToCheck.add(pw.recordId);
-            if (!allExternalIdsToCheck.isEmpty()) {
-                for (Product2 p : [SELECT 
-                                        Id, ExternalId 
-                                    FROM 
-                                        Product2 
-                                    WHERE 
-                                        ExternalId 
-                                    IN 
-                                        :allExternalIdsToCheck]) {
-                    productKeyToId.put('EXTID::' + p.ExternalId, p.Id);
-                }
-            }
-
-            if (!toUpdateById.isEmpty()) {
-                Database.update(toUpdateById.values(), false);
-            }
-            List<PBEWrapper> desiredPBEs = new List<PBEWrapper>();
-            Set<Id> productIdsForPBEs = new Set<Id>();
-            Set<Id> pricebookIdsForPBEs = new Set<Id>();
-
-            for (Integer i = 0; i < payload.size(); i++) {
-                ProductWrapper pw = payload[i];
-                Id prodId = null;
-                if (pw.recordId != null && productKeyToId.containsKey('EXTID::' + pw.recordId)) prodId = productKeyToId.get('EXTID::' + pw.recordId);
-                if (prodId == null && productKeyToId.containsKey('PAYIDX::' + String.valueOf(i))) prodId = productKeyToId.get('PAYIDX::' + String.valueOf(i));
-                if (prodId == null) {
-                    continue;
-                }
-                if (pw.pricebookEntries == null) continue;
-                for (PricebookEntryWrapper pbw : pw.pricebookEntries) {
-                    if (pbw.pricebook2Name == null) continue;
-                    PBEWrapper t = new PBEWrapper();
-                    t.productId = prodId;
-                    t.pricebookId = pricebookNameToId.get(pbw.pricebook2Name);
-                    t.unitPrice = pbw.unitPrice;
-                    t.isActive = pbw.isActive;
-                    t.useStandardPrice = pbw.useStandardPrice;
-                    t.payloadIndex = i;
-                    desiredPBEs.add(t);
-                    productIdsForPBEs.add(prodId);
-                }
-            }
-            Set<String> unresolvedPBNames = new Set<String>();
-            for (ProductWrapper pw : payload) {
-                if (pw.pricebookEntries == null) continue;
-                for (PricebookEntryWrapper pbw : pw.pricebookEntries) {
-                    if (pbw.pricebook2Name != null && !pricebookNameToId.containsKey(pbw.pricebook2Name)) unresolvedPBNames.add(pbw.pricebook2Name);
-                }
-            }
-            if (!unresolvedPBNames.isEmpty()) {
-                for (Pricebook2 pb : [SELECT 
-                                            Id, Name 
-                                        FROM 
-                                            Pricebook2 
-                                        WHERE 
-                                            Name 
-                                        IN 
-                                            :unresolvedPBNames]) {
-                    pricebookNameToId.put(pb.Name, pb.Id);
-                }
-            }
-            for (PBEWrapper t : desiredPBEs) {
-                if (t.pricebookId == null) {
-                    ProductWrapper pw = payload[t.payloadIndex];
-                    for (PricebookEntryWrapper pbw : pw.pricebookEntries) {
-                        if (pbw.pricebook2Name != null && pricebookNameToId.containsKey(pbw.pricebook2Name)) {
-                            t.pricebookId = pricebookNameToId.get(pbw.pricebook2Name);
-                            break;
+                            pw.pricebookEntries.add(pbe);
                         }
                     }
-                }
-                if (t.pricebookId != null) pricebookIdsForPBEs.add(t.pricebookId);
-            }
-            Map<String, PricebookEntry> existingPBEMap = new Map<String, PricebookEntry>();
-            if (!productIdsForPBEs.isEmpty() && !pricebookIdsForPBEs.isEmpty()) {
-                for (PricebookEntry ex : [SELECT 
-                                                Id, Product2Id, Pricebook2Id, UnitPrice, IsActive, UseStandardPrice
-                                          FROM 
-                                                PricebookEntry
-                                          WHERE    
-                                                Product2Id 
-                                            IN 
-                                                :productIdsForPBEs 
-                                            AND 
-                                                Pricebook2Id 
-                                            IN 
-                                                :pricebookIdsForPBEs]) {
-                    existingPBEMap.put(String.valueOf(ex.Product2Id) + '::' + String.valueOf(ex.Pricebook2Id), ex);
+
+                    responseWrapper.products.add(pw);
                 }
             }
-            List<PricebookEntry> pbesToInsert = new List<PricebookEntry>();
-            List<PricebookEntry> pbesToUpdate = new List<PricebookEntry>();
-            for (PBEWrapper t : desiredPBEs) {
-                if (t.pricebookId == null || t.productId == null) continue;
-                String key = String.valueOf(t.productId) + '::' + String.valueOf(t.pricebookId);
-                if (existingPBEMap.containsKey(key)) {
-                    PricebookEntry existing = existingPBEMap.get(key);
-                    existing.UnitPrice = t.unitPrice;
-                    existing.IsActive = t.isActive;
-                    existing.UseStandardPrice = t.useStandardPrice;
-                    pbesToUpdate.add(existing);
-                } else {
-                    pbesToInsert.add(new PricebookEntry(
-                        Product2Id = t.productId,
-                        Pricebook2Id = t.pricebookId,
-                        UnitPrice = t.unitPrice,
-                        IsActive = t.isActive,
-                        UseStandardPrice = t.useStandardPrice
-                    ));
-                }
-            }
-            if (!pbesToInsert.isEmpty()) Database.insert(pbesToInsert, false);
-            if (!pbesToUpdate.isEmpty()) Database.update(pbesToUpdate, false);
-            Map<String, Object> resp = new Map<String, Object>{
-                'message' => 'Sync completed (RecordId->ExternalId matching).',
-                'productsInserted' => toInsert.size(),
-                'productsUpdated' => toUpdateById.size(),
-                'pbesInserted' => pbesToInsert.size(),
-                'pbesUpdated' => pbesToUpdate.size()
-            };
+
+            responseWrapper.status = 'OK';
+            responseWrapper.message = 'Success';
+            String jsonString = JSON.serialize(responseWrapper);
             res.statusCode = 200;
-            res.responseBody = Blob.valueOf(JSON.serialize(resp));
-        } catch (Exception e) {
+            res.addHeader('Content-Type', 'application/json; charset=UTF-8');
+            res.responseBody = Blob.valueOf(jsonString);
+        } catch (Exception ex) {
+            responseWrapper.status = 'ERROR';
+            responseWrapper.message = 'Exception: ' + ex.getMessage();
+            String errJson = JSON.serialize(responseWrapper);
             res.statusCode = 500;
-            res.responseBody = Blob.valueOf(JSON.serialize(new Map<String,String>{ 'error' => e.getMessage() }));
+            res.addHeader('Content-Type', 'application/json; charset=UTF-8');
+            res.responseBody = Blob.valueOf(errJson);
         }
+    }
+/**************************************************************************************
+ * @author         CRM Developer
+ * @classname      ProductService.ResponseWrapper
+ * @description    Top-level API response wrapper carrying status, message and product list.
+ *************************************************************************************/
+global class ResponseWrapper {
+        public String status;
+        public String message;
+        public List<ProductWrapper> products;
+    }
+/**************************************************************************************
+ * @author         CRM Developer
+ * @classname      ProductService.ProductWrapper
+ * @description    Represents a simplified Product2 payload returned by this API.
+ *************************************************************************************/
+global class ProductWrapper {
+        public Id Id;
+        public String Name;
+        public String ProductCode;
+        public String Description;
+        public Boolean IsActive;
+        public String Family;
+        public String StockKeepingUnit;
+        public List<PricebookEntryWrapper> pricebookEntries;
+    }
+/**************************************************************************************
+ * @author         CRM Developer
+ * @classname      ProductService.PricebookEntryWrapper
+ * @description    Represents a simplified PricebookEntry payload with pricebook name reference.
+ *************************************************************************************/
+global class PricebookEntryWrapper {
+        public Id Id;
+        public Decimal UnitPrice;
+        public Boolean IsActive;
+        public Boolean UseStandardPrice;
+        public Id Product2Id;
+        public String PricebookName;
     }
 }
