@@ -1,0 +1,162 @@
+<template>
+  <!-- HEADER -->
+  <header class="pid-header">
+    <div class="pid-header-inner slds-grid slds-grid_align-spread slds-grid_vertical-align-center">
+      <div class="pid-left slds-col">
+        <div class="pid-brand slds-grid slds-grid_vertical-align-center">
+          <lightning-icon icon-name="standard:shopping_cart" size="small" alternative-text="Shopping Portal"></lightning-icon>
+          <span class="pid-title">Shopping Portal</span>
+        </div>
+      </div>
+
+      <div class="pid-center slds-col slds-text-align_center">
+        <lightning-input
+          class="pid-search"
+          type="search"
+          placeholder="Search products or SKU"
+          value={searchKey}
+          onchange={onSearchChange}
+          debounce="300">
+        </lightning-input>
+      </div>
+
+      <div class="pid-right slds-col slds-text-align_right">
+        <div class="pid-actions">
+          <lightning-button-icon
+            class="filter-btn"
+            icon-name="utility:filterList"
+            alternative-text="Filters"
+            title="Filters"
+            onclick={openFilterPanel}>
+          </lightning-button-icon>
+
+          <lightning-button variant="brand" label="Create Order" onclick={onCreateOrder} class="create-order-btn"></lightning-button>
+
+          <button class="cart-btn" onclick={openCart} title="Cart" aria-label="Open cart">
+            <lightning-icon icon-name="utility:shoppingCart" size="small" alternative-text="Cart"></lightning-icon>
+            <template if:true={hasCartItems}>
+              <span class="cart-badge">{cartCount}</span>
+            </template>
+          </button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- BODY (product grid) -->
+  <main class="pid-body">
+    <div class="product-grid" onscroll={onGridScroll} data-id="productGrid" role="list">
+      <template if:true={isLoading}>
+        <template for:each={skeletons} for:item="s">
+          <div key={s.id} class="product-card-wrapper">
+            <div class="product-skeleton-card"></div>
+          </div>
+        </template>
+      </template>
+
+      <template if:true={products}>
+        <template for:each={products} for:item="product">
+          <div key={product.id} class="product-card-wrapper" role="listitem">
+            <c-product-card product={product} onaddtocart={handleAddToCart} onviewdetails={handleViewDetails}></c-product-card>
+          </div>
+        </template>
+      </template>
+
+      <template if:true={noResults}>
+        <div class="no-results">No products found.</div>
+      </template>
+    </div>
+
+    <div class="load-more-placeholder" if:true={isLoadingMore}>
+      <lightning-spinner alternative-text="Loading more products"></lightning-spinner>
+    </div>
+  </main>
+
+  <!-- FOOTER -->
+  <footer class="pid-footer">
+    <div class="footer-inner">Showing {products.length} of {totalSize} products</div>
+  </footer>
+
+  <!-- FILTER MODAL -->
+  <template if:true={showFilterModal}>
+    <section class="filter-modal" role="dialog" aria-modal="true" aria-label="Filter Products">
+      <div class="filter-header">
+        <h3>Filter by Product Family</h3>
+        <lightning-button-icon icon-name="utility:close" alternative-text="Close" onclick={closeFilterPanel}></lightning-button-icon>
+      </div>
+      <div class="filter-body">
+        <template for:each={availableFamilies} for:item="family">
+          <div key={family.name} class="filter-option">
+            <lightning-input
+              type="checkbox"
+              label={family.name}
+              value={family.name}
+              onchange={handleFamilyChange}
+              checked={family.selected}>
+            </lightning-input>
+          </div>
+        </template>
+      </div>
+      <div class="filter-footer">
+        <lightning-button variant="neutral" label="Cancel" onclick={closeFilterPanel}></lightning-button>
+        <lightning-button variant="brand" label="Apply Filters" onclick={applyFilters}></lightning-button>
+      </div>
+    </section>
+    <div class="modal-backdrop" onclick={closeFilterPanel}></div>
+  </template>
+
+  <!-- PRODUCT DETAILS MODAL -->
+  <template if:true={showModal}>
+    <section class="modal" role="dialog" aria-modal="true" aria-label="Product Details">
+      <div class="modal-header">
+        <h3>{modalProduct.name}</h3>
+        <lightning-button-icon icon-name="utility:close" alternative-text="Close" onclick={closeModal}></lightning-button-icon>
+      </div>
+      <div class="modal-body">
+        <p><strong>SKU:</strong> {modalProduct.sku}</p>
+        <p><strong>Family:</strong> {modalProduct.family}</p>
+        <p><strong>Description:</strong> {modalProduct.description}</p>
+        <p><strong>Price:</strong> {modalProduct.price}</p>
+      </div>
+      <div class="modal-footer">
+        <lightning-button variant="neutral" label="Close" onclick={closeModal}></lightning-button>
+        <lightning-button variant="brand" label="Add to Cart" onclick={modalAddToCart}></lightning-button>
+      </div>
+    </section>
+    <div class="modal-backdrop" onclick={closeModal}></div>
+  </template>
+
+  <!-- CART DRAWER (kept simple) -->
+  <template if:true={showCart}>
+    <section class="cart-drawer" role="dialog" aria-modal="true" aria-label="Cart">
+      <div class="cart-header">
+        <h3>Cart ({cartCount})</h3>
+        <lightning-button-icon icon-name="utility:close" alternative-text="Close" onclick={closeCart}></lightning-button-icon>
+      </div>
+      <div class="cart-body">
+        <template if:true={cartItems.length}>
+          <template for:each={cartItems} for:item="it">
+            <div key={it.id} class="cart-item">
+              <div class="cart-item-left">
+                <div class="cart-item-name">{it.name}</div>
+                <div class="cart-item-sku">SKU: {it.sku}</div>
+              </div>
+              <div class="cart-item-right">
+                <div class="cart-item-price">{it.price}</div>
+                <lightning-button-icon icon-name="utility:delete" alternative-text="Remove" onclick={removeFromCart} data-id={it.id}></lightning-button-icon>
+              </div>
+            </div>
+          </template>
+        </template>
+        <template if:false={cartItems.length}>
+          <div class="empty-cart">Your cart is empty.</div>
+        </template>
+      </div>
+      <div class="cart-footer">
+        <lightning-button variant="neutral" label="Close" onclick={closeCart}></lightning-button>
+        <lightning-button variant="brand" label="Checkout" onclick={onCheckout} disabled={isCheckoutDisabled}></lightning-button>
+      </div>
+    </section>
+    <div class="drawer-backdrop" onclick={closeCart}></div>
+  </template>
+</template>
