@@ -1,0 +1,29 @@
+<template>
+  <article class="product-card" role="listitem" tabindex="0" aria-label={ariaLabel}>
+    <template if:true={isFetchedFromOrg}>
+      <div class="org-star" title="Price from Org" aria-hidden="false">
+        <svg viewBox="0 0 24 24" class="org-star-icon" focusable="false" aria-hidden="true">
+          <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/>
+        </svg>
+      </div>
+    </template>
+    <div class="card-header">
+      <div class="product-meta">
+        <h3 class="product-title" title={product.name}>{product.name}</h3>
+        <p class="product-family">{product.family}</p>
+        <p class="sku"><strong>SKU:</strong> {product.sku}</p>
+      </div>
+    </div>
+    <div>
+      <p>----------------------------------------------------</p>
+    </div>
+    <div class="card-body">
+      <p  title={product.description}>{product.description}</p>
+    </div>
+    <div class="card-footer">
+      <div class="action-block">
+        <lightning-button class="btn-view" variant="neutral" label="View details" onclick={onView}></lightning-button>
+      </div>
+    </div>
+  </article>
+</template>

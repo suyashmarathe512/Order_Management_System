@@ -1,0 +1,186 @@
+<template>
+  <div class="slds-box slds-theme_default checkout">
+    <div class="slds-page-header">
+      <div class="slds-page-header__row">
+        <div class="slds-page-header__col-title">
+          <div class="slds-media">
+            <div class="slds-media__body">
+              <div class="slds-page-header__name-title">
+                <h1 class="slds-page-header__title slds-truncate" title="Checkout">Checkout</h1>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <template if:true={cart.length}>
+      <div class="slds-section slds-is-open">
+        <div class="slds-section__content">
+          <div class="slds-grid slds-gutters slds-wrap">
+            <div class="slds-col slds-size_1-of-1">
+              <div class="slds-table_container">
+                <table class="slds-table slds-table_bordered slds-table_cell-buffer">
+                  <thead>
+                    <tr class="slds-line-height_reset">
+                      <th class="slds-text-heading_label" scope="col">Product</th>
+                      <th class="slds-text-heading_label" scope="col">Quantity</th>
+                      <th class="slds-text-heading_label" scope="col">Unit Price</th>
+                      <th class="slds-text-heading_label" scope="col">Line Total</th>
+                      <th class="slds-text-heading_label" scope="col">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <template for:each={cart} for:item="item">
+                      <tr key={item.id} class="slds-hint-parent">
+                        <td>
+                          <div class="product-name" title={item.name}>{item.name}</div>
+                          <div class="product-sku">SKU: {item.sku}</div>
+                        </td>
+                        <td>
+                          <div class="slds-grid slds-grid_vertical-align-center qty-editor">
+                            <button class="slds-button slds-button_icon slds-button_icon-border-filled"
+                                    title="Decrease"
+                                    data-id={item.id}
+                                    data-dir="dec"
+                                    onclick={handleQtyButton}>
+                              <lightning-icon icon-name="utility:dash" size="x-small"></lightning-icon>
+                            </button>
+                            <input type="number"
+                                   min="1"
+                                   max="9999"
+                                   value={item.qty}
+                                   data-id={item.id}
+                                   onchange={handleQtyChange}
+                                   class="slds-input slds-m-horizontal_small"
+                                   style="width:6rem" />
+                            <button class="slds-button slds-button_icon slds-button_icon-border-filled"
+                                    title="Increase"
+                                    data-id={item.id}
+                                    data-dir="inc"
+                                    onclick={handleQtyButton}>
+                              <lightning-icon icon-name="utility:add" size="x-small"></lightning-icon>
+                            </button>
+                          </div>
+                        </td>
+                        <td class="slds-text-align_right unit-price">₹{item.price}</td>
+                        <td class="slds-text-align_right line-total">₹{item.lineTotal}</td>
+                        <td>
+                          <button data-id={item.id} onclick={removeLine} class="slds-button slds-button_outline-brand slds-button_neutral slds-button_small remove-btn">Remove</button>
+                        </td>
+                      </tr>
+                    </template>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+          <div class="slds-box slds-theme_shade summary">
+            <div class="slds-grid slds-gutters slds-wrap">
+              <div class="slds-col slds-size_1-of-1">
+                <div class="slds-text-heading_medium total">Total: ₹{total}</div>
+              </div>
+              <div class="slds-col slds-size_1-of-1">
+                <div class="slds-form-element">
+                  <label class="slds-form-element__label" for="accountName">Account Name (required)</label>
+                  <div class="slds-form-element__control">
+                    <div class="slds-grid slds-gutters">
+                      <div class="slds-col slds-size_1-of-2">
+                        <input type="text" id="accountName" placeholder="Enter Account Name" onchange={handleAccountChange} class="slds-input" />
+                      </div>
+                      <div class="slds-col slds-size_1-of-2">
+                        <button onclick={openNewAccountModal} class="slds-button slds-button_brand">New Account</button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="slds-col slds-size_1-of-1">
+                <div class="slds-section">
+                  <h3 class="slds-section__title address-title">Billing Address</h3>
+                  <div class="slds-section__content address-content">
+                    <lightning-input-address
+                      address-label="Billing Address"
+                      street-label="Street"
+                      city-label="City"
+                      country-label="Country"
+                      province-label="State"
+                      postal-code-label="Postal Code"
+                      address={billingAddress}
+                      onchange={handleBillingChange}
+                      required>
+                    </lightning-input-address>
+                  </div>
+                </div>
+              </div>
+              <div class="slds-col slds-size_1-of-1">
+                <div class="slds-section">
+                  <h3 class="slds-section__title address-title">Shipping Address</h3>
+                  <div class="slds-section__content address-content">
+                    <lightning-input-address
+                      address-label="Shipping Address"
+                      street-label="Street"
+                      city-label="City"
+                      country-label="Country"
+                      province-label="State"
+                      postal-code-label="Postal Code"
+                      address={shippingAddress}
+                      onchange={handleShippingChange}
+                      required>
+                    </lightning-input-address>
+                  </div>
+                </div>
+              </div>
+              <div class="slds-col slds-size_1-of-1">
+                <div class="button-group" role="group">
+                  <button onclick={placeOrder} disabled={isLoading} class="slds-button slds-button_brand place-order-btn">Place Order</button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <template if:true={orderResult}>
+            <div class="slds-box slds-theme_shade invoice-section">
+              <div class="slds-grid slds-gutters">
+                <div class="slds-col slds-size_1-of-1">
+                  <h3 class="slds-section__title">Invoice Statement</h3>
+                  <div class="invoice-container">
+                    <iframe src={orderResult.pdfDownloadUrl} width="100%" height="600" frameborder="0"></iframe>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </template>
+        </div>
+  </div>
+  <template if:true={showAccountModal}>
+    <section role="dialog" tabindex="-1" aria-labelledby="modal-heading-01" aria-modal="true" aria-describedby="modal-content-id-1" class="slds-modal slds-fade-in-open">
+      <div class="slds-modal__container">
+        <header class="slds-modal__header">
+          <button class="slds-button slds-button_icon slds-modal__close" title="Close" onclick={closeAccountModal}>
+            <lightning-icon icon-name="utility:close" alternative-text="close" size="small"></lightning-icon>
+          </button>
+          <h2 id="modal-heading-01" class="slds-modal__title slds-hyphenate">New Account</h2>
+        </header>
+        <div class="slds-modal__content" id="modal-content-id-1" style="padding: 20px;">
+          <lightning-record-edit-form object-api-name="Account" onsuccess={handleAccountSuccess}>
+            <lightning-input-field field-name="Name" required></lightning-input-field>
+            <lightning-input-field field-name="Type"></lightning-input-field>
+            <lightning-input-field field-name="Industry"></lightning-input-field>
+            <lightning-input-field field-name="Phone"></lightning-input-field>
+            <div class="slds-m-top_medium">
+              <lightning-button variant="brand" type="submit" label="Create Account"></lightning-button>
+            </div>
+          </lightning-record-edit-form>
+        </div>
+      </div>
+    </section>
+    <div class="slds-backdrop slds-backdrop_open"></div>
+  </template>
+</template>
+    <template if:false={cart.length}>
+      <div class="slds-text-align_center empty-cart">
+        <div>Your cart is empty.</div>
+        <div class="slds-text-body_small">Add items to your cart to proceed with checkout.</div>
+      </div>
+    </template>
+  </div>
+</template>

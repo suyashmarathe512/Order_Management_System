@@ -1,0 +1,66 @@
+<apex:page controller="InvoicePDFController" renderAs="pdf" applyBodyTag="false" showHeader="false" standardStylesheets="true">
+    <head>
+        <style>
+            body { font-family: Arial, Helvetica, sans-serif; font-size: 12px; margin: 0.5in; }
+            .header { width:100%; display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
+            .company { font-size:16px; font-weight:bold; }
+            .invoice { font-size:20px; font-weight:bold; text-align:right; }
+            table { width:100%; border-collapse: collapse; margin-top:10px; }
+            th, td { border: 1px solid #ddd; padding:6px; text-align:left; }
+            th { background:#f5f5f5; }
+            .right { text-align:right; }
+        </style>
+    </head>
+    <body>
+        <div class="header">
+            <div>
+                <div class="company">CRM Team Innovation</div>
+                <div>Nandan Probiz<br/>Pune, Maharashtra, 422022</div>
+            </div>
+            <div class="invoice">
+                INVOICE<br/>
+                <span style="font-size:12px;">Order {!order.Name}</span>
+            </div>
+        </div>
+        <div>
+            <table>
+                <tr>
+                    <td><strong>Invoice Date</strong><br/>{!order.EffectiveDate}</td>
+                    <td><strong>Bill To</strong><br/>{!order.Account.Name}</td>
+                    <td><strong>Ship To</strong><br/>{!order.ShippingStreet}<br/>{!order.ShippingCity}</td>
+                </tr>
+            </table>
+            <table>
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Product</th>
+                        <th class="right">Unit Price</th>
+                        <th class="right">Qty</th>
+                        <th class="right">Line Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <apex:variable var="idx" value="{!0}" />
+                    <apex:repeat value="{!orderItems}" var="it">
+                        <apex:variable var="idx" value="{!idx + 1}" />
+                        <tr>
+                            <td>{!idx}</td>
+                            <td>{!it.PricebookEntry.Product2.Name}</td>
+                            <td class="right">{!IF(it.UnitPrice==null, 0, it.UnitPrice)}</td>
+                            <td class="right">{!IF(it.Quantity==null, 1, it.Quantity)}</td>
+                            <td class="right">{! (IF(it.UnitPrice==null, 0, it.UnitPrice) * IF(it.Quantity==null, 1, it.Quantity)) }</td>
+                        </tr>
+                    </apex:repeat>
+                </tbody>
+            </table>
+            <div style="width:100%; display:flex; justify-content:flex-end; margin-top:10px;">
+                <table style="width:300px;">
+                    <tr><td>Subtotal</td><td class="right">{!subtotal}</td></tr>
+                    <tr><td>Tax</td><td class="right">{!tax}</td></tr>
+                    <tr><td style="font-weight:bold">Total</td><td class="right" style="font-weight:bold">{!total}</td></tr>
+                </table>
+            </div>
+        </div>
+    </body>
+</apex:page>
