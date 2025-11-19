@@ -3,7 +3,7 @@ import createOrderFromCart from '@salesforce/apex/CheckOutController.createOrder
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 import { NavigationMixin } from 'lightning/navigation';
 export default class CheckoutPage extends NavigationMixin(LightningElement) {
-  @api cart = [];
+  @track _cart = [];
   @track isLoading = false;
   @track orderResult = null;
   @track accountName = '';
@@ -22,6 +22,16 @@ export default class CheckoutPage extends NavigationMixin(LightningElement) {
     postalCode: '',
     country: ''
   };
+  @api
+  get cart() {
+    return this._cart;
+  }
+  set cart(value) {
+    this._cart = (value || []).map(i => ({
+      ...i,
+      lineTotal: Number(i.price || 0) * Number(i.qty || 1)
+    }));
+  }
   connectedCallback() {
     try {
       const raw = sessionStorage.getItem('cart');
@@ -183,7 +193,12 @@ export default class CheckoutPage extends NavigationMixin(LightningElement) {
         window.open(url, '_blank');
       } else {
         const vfUrl = window.location.origin + '/apex/InvoicePdf?id=' + res.orderId;
-        window.open(vfUrl, '_blank');
+        this[NavigationMixin.Navigate]({
+          type: 'standard__webPage',
+          attributes: {
+            url: vfUrl
+          }
+        });
       }
     })
     .catch(err => {

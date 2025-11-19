@@ -5,11 +5,11 @@
   position: relative;
   background: #fff;
   border-radius: 8px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
   padding: 16px;
   overflow: hidden;
-  height: 250px; 
-  width: 350px; 
+  height: -webkit-fill-available;
+  width: fit-content;
   display: flex;
   flex-direction: column;
 }

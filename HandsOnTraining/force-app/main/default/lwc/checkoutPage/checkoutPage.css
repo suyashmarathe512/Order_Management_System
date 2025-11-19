@@ -31,6 +31,7 @@
 .checkout .slds-table thead th {
   background: #f8fafc;
   border-bottom: 2px solid #e2e8f0;
+  border-right: 1px solid #e2e8f0;
   color: #475569;
   font-weight: 600;
   font-size: 14px;
@@ -38,13 +39,17 @@
   letter-spacing: 0.5px;
   padding: 16px 12px;
 }
+.checkout .slds-table thead th:last-child {
+  border-right: none;
+}
 .checkout .slds-table tbody td {
   padding: 16px 12px;
   border-bottom: 1px solid #f1f5f9;
+  border-right: 1px solid #f1f5f9;
   vertical-align: middle;
 }
-.checkout .slds-table tbody tr:hover {
-  background: #f8fafc;
+.checkout .slds-table tbody td:last-child {
+  border-right: none;
 }
 .product-name {
   font-weight: 600;
@@ -80,7 +85,6 @@
 }
 .unit-price, .line-total {
   font-weight: 700;
-  color: #059669;
   font-size: 16px;
 }
 .remove-btn {
@@ -155,6 +159,7 @@
 }
 .address-title {
   font-weight: bold;
+  padding: 16px;
 }
 .address-content {
   padding: 16px;

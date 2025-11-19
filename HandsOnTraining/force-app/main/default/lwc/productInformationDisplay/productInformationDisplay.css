@@ -8,12 +8,16 @@
   border-radius: 8px;
   margin: 8px 18px 12px 18px;
 }
-.pid-header-inner { align-items: center; gap: 12px; }
+.cart-icon{ 
+  width: 100px; 
+  height: 100px; 
+  fill: #072048;}
+.pid-header-inner { display: flex; align-items: center; gap: 12px; }
 /* brand/title */
-.pid-brand { display:flex; align-items:center; gap:10px; }
-.pid-title { font-weight:700; font-size:3.05rem; color:#072048; }
+.pid-brand { display:flex; align-items:center; gap:10px; flex: 0 0 auto; }
+.pid-title { font-weight:700; font-size:2.25rem; color:#072048; }
 /* centered search */
-.pid-center { display:flex; justify-content:center; }
+.pid-center { display:flex; justify-content:center; flex: 1; }
 .pid-search { width: 640px; max-width: 78vw; }
 .pid-actions { display:flex; align-items:center; gap:10px; justify-content:flex-end; }
 .create-order-btn { --lwc-button-height:36px; }

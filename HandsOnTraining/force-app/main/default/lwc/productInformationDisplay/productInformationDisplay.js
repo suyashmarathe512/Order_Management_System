@@ -3,6 +3,7 @@ import fetchProducts from '@salesforce/apex/ProductController.fetchProducts';
 import fetchProductFamilies from '@salesforce/apex/ProductController.fetchProductFamilies';
 import{ShowToastEvent}from 'lightning/platformShowToastEvent';
 import{NavigationMixin}from 'lightning/navigation';
+import CartIcon from '@salesforce/resourceUrl/CartIcon';
 export default class ProductInformationDisplay extends NavigationMixin(LightningElement){
   @track products=[];
   @track pageNumber=1;
@@ -45,6 +46,9 @@ export default class ProductInformationDisplay extends NavigationMixin(Lightning
   }
   get formattedModalPrice(){
     return this.formatCurrency(this.modalProduct?.price);
+  }
+  get cartIconUrl(){
+    return CartIcon + '/CartIcon.png';
   }
   async loadProducts(reset=true){
     try{
