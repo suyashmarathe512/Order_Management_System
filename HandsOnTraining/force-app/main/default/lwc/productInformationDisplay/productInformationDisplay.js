@@ -239,6 +239,11 @@ export default class ProductInformationDisplay extends NavigationMixin(Lightning
       console.error('Cannot add to cart:Invalid product data');
       return;
   }
+    const existingItem=this.cartItems.find(item=> item.id=== this.modalProduct.id);
+    if(existingItem){
+      this.dispatchEvent(new ShowToastEvent({title:'Product already in cart',message:'Add required quantity of your product in Checkout page.',variant:'info'}));
+      return;
+  }
     const item={
       id:this.modalProduct.id,
       name:this.modalProduct.name,
@@ -256,6 +261,11 @@ export default class ProductInformationDisplay extends NavigationMixin(Lightning
   }));
 }
   modalAddToCart(){
+    const existingItem=this.cartItems.find(item=> item.id=== this.modalProduct.id);
+    if(existingItem){
+      this.dispatchEvent(new ShowToastEvent({title:'Product already in cart',message:'Add required quantity of your product in Checkout page.',variant:'info'}));
+      return;
+  }
     const item={
       id:this.modalProduct.id,
       name:this.modalProduct.name,

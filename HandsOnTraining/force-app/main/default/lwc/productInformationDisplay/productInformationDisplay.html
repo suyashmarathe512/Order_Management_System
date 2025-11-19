@@ -104,11 +104,8 @@
         <div class="product-summary">
           <h4>{modalProduct.name}</h4>
           <p><strong>SKU:</strong> {modalProduct.sku}</p>
-          <p>-</p>
           <p><strong>Family:</strong> {modalProduct.family}</p>
-           <p>-</p>
           <p><strong>Description:</strong> {modalProduct.description}</p>
-           <p>-</p>
           <p><strong>Displayed Price:</strong> {formattedModalPrice}</p>
         </div>
         <div class="pbe-section">
@@ -118,7 +115,6 @@
                 <div key={row.pricebookEntryId} class="pbe-row">
                   <div class="pbe-price">Unit Price: <strong>{row.formattedUnitPrice}</strong></div>
                   <div class="pbe-info">
-                    <span>Pricebook: {row.pricebookName}</span>
                     <span>Active: {row.isActive}</span>
                     <span>SKU: {row.sku}</span>
                   </div>
