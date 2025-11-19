@@ -1,32 +1,37 @@
 <apex:page controller="InvoicePDFController" renderAs="pdf" applyBodyTag="false" showHeader="false" standardStylesheets="true">
     <head>
         <style>
-            body {font-family: Arial, Helvetica, sans-serif; font-size: 12px; margin: 0.5in;}
-            .header {width:100%; display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;}
-            .company {font-size:16px; font-weight:bold;}
-            .invoice {font-size:20px; font-weight:bold; text-align:right;}
+            body {font-family: Arial, Helvetica, sans-serif; font-size: 12px; margin: 0.5in; color: #333;}
+            .header {width:100%; display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; padding-bottom:10px; border-bottom: 2px solid #007bff;}
+            .company {font-size:18px; font-weight:bold; color: #007bff;}
+            .invoice {font-size:24px; font-weight:bold; text-align:right; color: #007bff;}
             table {width:100%; border-collapse: collapse; margin-top:10px;}
-            th, td {border: 1px solid #ddd; padding:6px; text-align:left;}
-            th {background:#f5f5f5;}
+            th, td {border: 1px solid #ddd; padding:8px; text-align:left;}
+            th {background:#007bff; color: white; font-weight: bold;}
+            tbody tr:nth-child(even) {background-color: #f9f9f9;}
             .right {text-align:right;}
+            .footer {margin-top: 20px; text-align: center; font-size: 10px; color: #666; border-top: 1px solid #ddd; padding-top: 10px;}
         </style>
     </head>
     <body>
         <div class="header">
-            <div>
-                <div class="company">CRM Team Innovation</div>
-                <div>Nandan Probiz<br/>Pune, Maharashtra, 422022</div>
+            <div style="display:flex; align-items:center;">
+                <img src="{!$Resource.CTILogo}" alt="Logo" style="width:50px; height:50px; margin-right:10px;"/>
+                <div>
+                    <div class="company">CRM Team Innovation</div>
+                    <div>Nandan Probiz<br/>Pune, Maharashtra, 422022</div>
+                </div>
             </div>
             <div class="invoice">
                 INVOICE<br/>
-                <span style="font-size:12px;">Order {!order.Name}</span>
+                <span style="font-size:14px;">Order {!order.Name}</span>
             </div>
         </div>
         <div>
             <table>
                 <tr>
                     <td><strong>Invoice Date</strong><br/>{!order.CreatedDate}</td>
-                    <td><strong>Bill To</strong><br/>{!order.Account.Name}</td>
+                    <td><strong>Bill To </strong><br/>{!order.Account.Name}</td>
                     <td><strong>Ship To</strong><br/>{!order.ShippingStreet}<br/>{!order.ShippingCity}</td>
                 </tr>
             </table>
@@ -35,9 +40,9 @@
                     <tr>
                         <th>#</th>
                         <th>Product</th>
-                        <th class="right">Unit Price</th>
+                        <th class="right">Unit Price (INR)</th>
                         <th class="right">Qty</th>
-                        <th class="right">Line Total</th>
+                        <th class="right">Line Total (INR)</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -47,20 +52,25 @@
                         <tr>
                             <td>{!idx}</td>
                             <td>{!it.PricebookEntry.Product2.Name}</td>
-                            <td class="right">₹<apex:outputText value="{0, number, ###,###.##}"><apex:param value="{!IF(it.UnitPrice==null, 0, it.UnitPrice)}"/></apex:outputText></td>
+                            <td class="right">INR<apex:outputText value="{0, number, ###,###.##}"><apex:param value="{!IF(it.UnitPrice==null, 0, it.UnitPrice)}"/></apex:outputText></td>
                             <td class="right">{!IF(it.Quantity==null, 1, it.Quantity)}</td>
-                            <td class="right">₹<apex:outputText value="{0, number, ###,###.##}"><apex:param value="{! (IF(it.UnitPrice==null, 0, it.UnitPrice) * IF(it.Quantity==null, 1, it.Quantity))}"/></apex:outputText></td>
+                            <td class="right">INR<apex:outputText value="{0, number, ###,###.##}"><apex:param value="{! (IF(it.UnitPrice==null, 0, it.UnitPrice) * IF(it.Quantity==null, 1, it.Quantity))}"/></apex:outputText></td>
                         </tr>
                     </apex:repeat>
                 </tbody>
             </table>
-            <div style="width:100%; display:flex; justify-content:flex-end; margin-top:10px;">
-                <table style="width:300px;">
-                    <tr><td>Subtotal</td><td class="right">₹<apex:outputText value="{0, number, ###,###.##}"><apex:param value="{!subtotal}"/></apex:outputText></td></tr>
-                    <tr><td>Tax</td><td class="right">{!tax}</td></tr>
-                    <tr><td style="font-weight:bold">Total</td><td class="right" style="font-weight:bold">₹<apex:outputText value="{0, number, ###,###.##}"><apex:param value="{!total}"/></apex:outputText></td></tr>
+            <div style="width:100%; display:flex; justify-content:flex-end; margin-top:15px;">
+                <table style="width:300px; border: 1px solid #007bff;">
+                    <tr><td style="background:#007bff; color:white; font-weight:bold;">Subtotal</td><td class="right" style="background:#f0f8ff;">INR<apex:outputText value="{0, number, ###,###.##}"><apex:param value="{!subtotal}"/></apex:outputText></td></tr>
+                    <tr><td>Tax</td><td class="right">{!tax}%</td></tr>
+                    <tr><td style="font-weight:bold; background:#007bff; color:white;">Total</td><td class="right" style="font-weight:bold; background:#f0f8ff;">INR<apex:outputText value="{0, number, ###,###.##}"><apex:param value="{!total}"/></apex:outputText></td></tr>
                 </table>
             </div>
+        </div>
+        <div class="footer">
+            Suite 607, Nandan Pro Biz, Laxman Nagar, Balewadi, Pune, Maharashtra 411045, India 
+            CRM Team Innovation Private Limited is a subsidiary of CRM Team Global Limited, a salesforce.com PARTNER. 
+  
         </div>
     </body>
 </apex:page>

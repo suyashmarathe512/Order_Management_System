@@ -1,12 +1,16 @@
-import{LightningElement,track,api}from 'lwc';
+import { LightningElement, track, api, wire } from 'lwc';
+import { getListUi } from 'lightning/uiListApi';
 import createOrderFromCart from '@salesforce/apex/CheckOutController.createOrderFromCart';
-import{ShowToastEvent}from 'lightning/platformShowToastEvent';
-import{NavigationMixin}from 'lightning/navigation';
+import { ShowToastEvent } from 'lightning/platformShowToastEvent';
+import { NavigationMixin } from 'lightning/navigation';
+import ACCOUNT_OBJECT from '@salesforce/schema/Account';
 export default class CheckoutPage extends NavigationMixin(LightningElement){
   @track _cart=[];
   @track isLoading=false;
   @track orderResult=null;
-  @track accountName='';
+  @track selectedAccountId=null;
+  @track accounts = [];
+  @track error;
   @track showAccountModal=false;
   @track billingAddress={
     street:'',
@@ -154,10 +158,10 @@ export default class CheckoutPage extends NavigationMixin(LightningElement){
   }));
     return;
 }
-  if(!this.accountName){
+  if(!this.selectedAccountId){
     this.dispatchEvent(new ShowToastEvent({
       title:'Account required',
-      message:'Enter Account Name',
+      message:'Select an Account',
       variant:'warning'
   }));
     return;
@@ -174,7 +178,7 @@ export default class CheckoutPage extends NavigationMixin(LightningElement){
     skus,
     qtys,
     prices,
-    accountName:this.accountName,
+    accountId:this.selectedAccountId,
     billingStreet:this.billingAddress.street,
     billingCity:this.billingAddress.city,
     billingState:this.billingAddress.state,
@@ -225,8 +229,8 @@ export default class CheckoutPage extends NavigationMixin(LightningElement){
       this.isLoading=false;
   });
 }
-  handleAccountChange(evt){
-    this.accountName=evt.target.value;
+  handleAccountSelection(evt){
+    this.selectedAccountId = evt.detail.value;
 }
   openNewAccountModal(){
     this.showAccountModal=true;
@@ -238,8 +242,9 @@ export default class CheckoutPage extends NavigationMixin(LightningElement){
   handleAccountSuccess(event){
     const accountId=event.detail.id;
     const accountName=event.detail.fields.Name.value;
-    this.accountName=accountName;
+    this.selectedAccountId=accountId;
     this.showAccountModal=false;
+    this.refreshAccounts();
     this.dispatchEvent(new ShowToastEvent({
       title:'Account Created',
       message:`Account "${accountName}" created successfully`,
@@ -252,4 +257,20 @@ export default class CheckoutPage extends NavigationMixin(LightningElement){
   handleShippingChange(evt){
     this.shippingAddress={...evt.detail};
 }
+
+  @wire(getListUi, { objectApiName: ACCOUNT_OBJECT, listViewApiName: 'AllAccounts', key: '$accountRefreshKey' })
+  wiredAccounts({ error, data }) {
+    if (data) {
+      this.accounts = data.records.records.map(record => ({
+        label: record.fields.Name.value,
+        value: record.id
+      }));
+      this.error = undefined;
+    } else if (error) {
+      this.error = error;
+      this.accounts = [];
+    }
+  }
+  refreshAccounts(){this.accountRefreshKey = Date.now();
+  }
 }

@@ -21,36 +21,30 @@ public with sharing class CheckOutController{
 /************************************************************************************************
  * @Author :      CRM Team Innovation
  * @MethodName:    createOrderFromCart
- * @params :      productIds,names,skus,qtys,prices,accountName,billingStreet,billingCity,
+ * @params :      productIds,names,skus,qtys,prices,accountId,billingStreet,billingCity,
  *                 billingState,billingPostalCode,billingCountry,shippingStreet,shippingCity,
  *                 shippingState,shippingPostalCode,shippingCountry
  * @Description:   this wrapper class is used to return the order id,line item count,
  *                     total amount,content version id and content document id.
  **************************************************************************************************/
     @AuraEnabled
-    public static CreateOrderResult createOrderFromCart(List<Id> productIds,List<String> names,List<String> skus,List<Integer> qtys,List<Decimal> prices,String accountName,String billingStreet,String billingCity,String billingState,String billingPostalCode,String billingCountry,String shippingStreet,String shippingCity,String shippingState,String shippingPostalCode,String shippingCountry){
+    public static CreateOrderResult createOrderFromCart(List<Id> productIds,List<String> names,List<String> skus,List<Integer> qtys,List<Decimal> prices,Id accountId,String billingStreet,String billingCity,String billingState,String billingPostalCode,String billingCountry,String shippingStreet,String shippingCity,String shippingState,String shippingPostalCode,String shippingCountry){
         if(productIds == null || productIds.isEmpty()){
             throw new AuraHandledException('Cart is empty');
         }
-        if(String.isBlank(accountName)){
+        if(accountId == null){
             throw new AuraHandledException('Account is required');
         }
-        Account acc;
-        try{
-            acc=[SELECT
-                        Id
-                    FROM 
-                        Account
-                    WHERE
-                        Name=:accountName
-                    LIMIT 1];
-        }catch(Exception e){
-            throw new AuraHandledException('Account not found with name: ' + accountName);
+        List<Account> accList = [SELECT 
+                                        Id 
+                                    FROM 
+                                        Account 
+                                    WHERE 
+                                        Id = :accountId 
+                                    LIMIT 1];
+        if(accList.isEmpty()){
+            throw new AuraHandledException('Account not found');
         }
-        if(acc == null){
-            throw new AuraHandledException('Account not found with name: ' + accountName);
-        }
-        Id accountId=acc.Id;
         Id pricebookId=[SELECT 
                                 Id 
                         FROM 

@@ -81,14 +81,21 @@
               </div>
               <div class="slds-col slds-size_1-of-1">
                 <div class="slds-form-element">
-                  <label class="slds-form-element__label" for="accountName">Account Name (required)</label>
+                  <label class="slds-form-element__label" for="accountPicker">Account (required)</label>
                   <div class="slds-form-element__control">
                     <div class="slds-grid slds-gutters">
                       <div class="slds-col slds-size_1-of-2">
-                        <input type="text" id="accountName" placeholder="Enter Account Name" onchange={handleAccountChange} class="slds-input" />
+                        <lightning-combobox
+                          name="account"
+                          placeholder="Select an Account"
+                          options={accounts}
+                          value={selectedAccountId}
+                          onchange={handleAccountSelection}
+                          >
+                        </lightning-combobox>
                       </div>
                       <div class="slds-col slds-size_1-of-2">
-                        <button onclick={openNewAccountModal} class="slds-button slds-button_brand">New Account</button>
+                        <button onclick={openNewAccountModal} class="slds-button slds-button_brand new-account-btn">New Account</button>
                       </div>
                     </div>
                   </div>

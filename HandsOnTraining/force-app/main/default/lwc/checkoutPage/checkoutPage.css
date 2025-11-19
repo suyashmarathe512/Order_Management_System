@@ -95,6 +95,12 @@
   background: #fef2f2;
   color: #b91c1c;
 }
+.new-account-btn{
+    padding: 20px;
+    size: landscape;
+    width: 190px;
+    HEIGHT: 60px;
+}
 .summary {
   margin-top: 24px;
   padding: 24px;
@@ -212,3 +218,4 @@
     font-size: 20px;
   }
 }
+

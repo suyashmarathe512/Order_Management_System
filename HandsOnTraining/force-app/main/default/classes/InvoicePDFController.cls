@@ -49,7 +49,7 @@ public with sharing class InvoicePDFController{
         order=new Order(Name='Unknown',EffectiveDate=Date.today());
         orderItems=new List<OrderItem>();
         subtotal=0;
-        tax=0;
+        tax=8;
         total=0;
 }
 /*****************************************************************************
@@ -68,7 +68,7 @@ public with sharing class InvoicePDFController{
             qtyDecimal=Decimal.valueOf(String.valueOf(oi.Quantity));
         }subtotal += unit * qtyDecimal;
     }
-        tax=0;
-        total=subtotal + tax;
+        tax= 8;
+        total=subtotal +(subtotal *Tax / 100);
 }
 }
