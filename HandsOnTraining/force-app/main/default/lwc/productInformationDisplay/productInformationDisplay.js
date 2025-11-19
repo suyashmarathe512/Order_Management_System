@@ -44,6 +44,12 @@ export default class ProductInformationDisplay extends NavigationMixin(Lightning
   get isCheckoutDisabled(){
     return this.cartCount === 0;
   }
+  get hasActiveFilters(){
+    return this.selectedFamilies.length > 0;
+  }
+  get filterBtnClass(){
+    return this.hasActiveFilters ? 'filter-btn-active' : '';
+  }
   get formattedModalPrice(){
     return this.formatCurrency(this.modalProduct?.price);
   }

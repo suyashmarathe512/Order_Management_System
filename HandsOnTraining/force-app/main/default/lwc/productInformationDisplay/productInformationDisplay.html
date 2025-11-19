@@ -19,13 +19,18 @@
       </div>
       <div class="pid-right slds-col slds-text-align_right">
         <div class="pid-actions">
-          <lightning-button-icon
-            class="filter-btn"
-            icon-name="utility:filterList"
-            alternative-text="Filters"
-            title="Filters"
-            onclick={openFilterPanel}>
-          </lightning-button-icon>
+          <div class="filter-container">
+            <lightning-button-icon
+              class={filterBtnClass}
+              icon-name="utility:filterList"
+              alternative-text="Filters"
+              title="Filters"
+              onclick={openFilterPanel}>
+            </lightning-button-icon>
+            <template if:true={hasActiveFilters}>
+              <div class="filter-indicator"></div>
+            </template>
+          </div>
           <button class="cart-btn" onclick={openCart} title="Cart" aria-label="Open cart">
             Cart
             <template if:true={hasCartItems}>
@@ -92,15 +97,18 @@
   <template if:true={showPbeModal}>
     <section class="modal modal-large" role="dialog" aria-modal="true" aria-label="Pricebook Info">
       <div class="modal-header">
-        <h3>Pricebook Info</h3>
+        <h3><strong>Pricebook Info of {modalProduct.name} </strong></h3>
         <lightning-button-icon icon-name="utility:close" alternative-text="Close" onclick={closePbeModal}></lightning-button-icon>
       </div>
       <div class="modal-body modal-body-wide">
         <div class="product-summary">
           <h4>{modalProduct.name}</h4>
           <p><strong>SKU:</strong> {modalProduct.sku}</p>
+          <p>-</p>
           <p><strong>Family:</strong> {modalProduct.family}</p>
+           <p>-</p>
           <p><strong>Description:</strong> {modalProduct.description}</p>
+           <p>-</p>
           <p><strong>Displayed Price:</strong> {formattedModalPrice}</p>
         </div>
         <div class="pbe-section">

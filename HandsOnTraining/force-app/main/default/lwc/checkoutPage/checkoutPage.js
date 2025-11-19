@@ -70,19 +70,7 @@ export default class CheckoutPage extends NavigationMixin(LightningElement) {
   get total() {
     return this.cart.reduce((sum, it) => sum + ((it.price || 0) * (it.qty || 1)), 0);
   }
-  get cartWithLineTotals() {
-    return (this.cart || []).map(i => ({
-      ...i,
-      lineTotal: Number(i.price || 0) * Number(i.qty || 1)
-    }));
-  }
-  set cart(value) {
-    const updatedCart = (value || []).map(i => ({
-      ...i,
-      lineTotal: Number(i.price || 0) * Number(i.qty || 1)
-    }));
-    super.cart = updatedCart;
-  }
+
   get currencyFormatter() {
     return (val) => {
       const num = Number(val || 0);
@@ -129,8 +117,8 @@ export default class CheckoutPage extends NavigationMixin(LightningElement) {
   }
   removeLine(evt) {
     const id = evt.target.dataset.id;
-    this.cart = this.cart.filter(i => i.id !== id);
-    sessionStorage.setItem('cart', JSON.stringify(this.cart));
+    this._cart = this._cart.filter(i => i.id !== id);
+    sessionStorage.setItem('cart', JSON.stringify(this._cart));
   }
   placeOrder() {
   const cartArray = Array.from(this.cart || []);
