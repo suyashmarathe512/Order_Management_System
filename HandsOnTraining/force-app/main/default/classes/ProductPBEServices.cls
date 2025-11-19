@@ -15,10 +15,8 @@ global with sharing class ProductPBEServices{
     @HttpPost
     global static void getPBEInfo(){
         RestResponse response=RestContext.response;
-        response.addHeader('Content-Type', 'application/json;');
-        String key=RestContext.request.requestBody != null 
-                        ? RestContext.request.requestBody.toString() 
-                        : null;
+        response.addHeader('Content-Type','application/json;');
+        String key=RestContext.request.requestBody != null?RestContext.request.requestBody.toString() : null;
         if(String.isBlank(key)){
             response.statusCode=400;
             response.responseBody=Blob.valueOf(
@@ -28,7 +26,7 @@ global with sharing class ProductPBEServices{
         }
         key=key.trim();
         if(key.startsWith('"') && key.endsWith('"')){
-            key=key.substring(1, key.length() - 1);
+            key=key.substring(1,key.length() - 1);
         }
         Product2 prod;
         try{
@@ -64,13 +62,13 @@ global with sharing class ProductPBEServices{
                     UnitPrice ASC
                 LIMIT 1
             ];
-            unitPrice=(pbe != null) ? pbe.UnitPrice : null;
+            unitPrice=(pbe != null)?pbe.UnitPrice : null;
         }catch(Exception e){
             unitPrice=null;
         }
         response.statusCode=200;
         response.responseBody=Blob.valueOf(
-            unitPrice == null ? 'null' : String.valueOf(unitPrice)
+            unitPrice == null?'null' : String.valueOf(unitPrice)
         );
     }
 }

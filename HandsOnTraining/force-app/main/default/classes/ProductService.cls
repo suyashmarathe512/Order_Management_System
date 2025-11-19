@@ -1,12 +1,12 @@
 /***************************************************************************************
- * @Author :      CRM Team Innovation
+ * @Author:     CRM Team Innovation
  * @ClassName:    ProductService
  * @Description:   This class allowed the GET method to return the product with PBE.
  ******************************************************************************************/
 @RestResource(urlMapping='/Products')
 global with sharing class ProductService{
 /***************************************************************************************
- * @Author :      CRM Team Innovation
+ * @Author:     CRM Team Innovation
  * @MethodName:    getProductsWithPBE
  * @Description:   This mehodh allowed the GET method to return the product with PBE.
  ******************************************************************************************/
@@ -22,32 +22,32 @@ global with sharing class ProductService{
                 SELECT
                     Id,Name,ProductCode,Description,IsActive,Family,StockKeepingUnit,
                 (SELECT 
-                            Id, UnitPrice, IsActive, UseStandardPrice, Product2Id, Pricebook2.Name
+                        Id, UnitPrice, IsActive, UseStandardPrice, Product2Id, Pricebook2.Name
                      FROM 
                         PricebookEntries)
                 FROM 
                     Product2
             ];
             if(products != null && !products.isEmpty()){
-                for(Product2 p : products){
+                for(Product2 p:products){
                     ProductWrapper pw=new ProductWrapper();
                     pw.Id=p.Id;
                     pw.Name=p.Name;
                     pw.ProductCode=p.ProductCode;
                     pw.Description=p.Description;
-                    pw.IsActive=(p.IsActive == null) ? false : p.IsActive;
+                    pw.IsActive=(p.IsActive == null)?false:p.IsActive;
                     pw.Family=p.Family;
                     pw.StockKeepingUnit=p.StockKeepingUnit;
                     pw.pricebookEntries=new List<PricebookEntryWrapper>();
                     if(p.PricebookEntries != null && !p.PricebookEntries.isEmpty()){
-                        for(PricebookEntry pe : p.PricebookEntries){
+                        for(PricebookEntry pe:p.PricebookEntries){
                             PricebookEntryWrapper pbe=new PricebookEntryWrapper();
                             pbe.Id=pe.Id;
                             pbe.UnitPrice=pe.UnitPrice;
-                            pbe.IsActive=(pe.IsActive == null) ? false : pe.IsActive;
-                            pbe.UseStandardPrice=(pe.UseStandardPrice == null) ? false : pe.UseStandardPrice;
+                            pbe.IsActive=(pe.IsActive == null)?false:pe.IsActive;
+                            pbe.UseStandardPrice=(pe.UseStandardPrice == null)?false:pe.UseStandardPrice;
                             pbe.Product2Id=pe.Product2Id;
-                            pbe.PricebookName=(pe.Pricebook2 != null) ? pe.Pricebook2.Name : null;
+                            pbe.PricebookName=(pe.Pricebook2 != null)?pe.Pricebook2.Name:null;
                             pw.pricebookEntries.add(pbe);
                         }
                     }
@@ -62,7 +62,7 @@ global with sharing class ProductService{
             res.responseBody=Blob.valueOf(jsonString);
         }catch(Exception ex){
             responseWrapper.status='ERROR';
-            responseWrapper.message='Exception: ' + ex.getMessage();
+            responseWrapper.message='Exception: '+ex.getMessage();
             String errJson=JSON.serialize(responseWrapper);
             res.statusCode=500;
             res.addHeader('Content-Type', 'application/json; charset=UTF-8');

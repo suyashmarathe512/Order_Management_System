@@ -11,15 +11,15 @@ public with sharing class ProductController{
 /*****************************************************************************
  * @AuthorName:     CRM Team Innovation
  * @MethodName:      fetchProducts
- * @params :        pageNumber, pageSize, searchQuery, selectedFamilies, sortField, sortDir
+ * @params:       pageNumber,pageSize,searchQuery,selectedFamilies,sortField,sortDir
  * @Description:     This method is used to fetch the products from the server org.
  *                    It also used to Sort the product based on the family.
  *                    It helps the LWC with the pagination and searchquery.
  ***********************************************************************************/
     @AuraEnabled
-    public static ProductPage fetchProducts(Integer pageNumber, Integer pageSize, String searchQuery, List<String> selectedFamilies, String sortField, String sortDir){
-        if(pageNumber == null) pageNumber=1;
-        if(pageSize == null) pageSize=12;
+    public static ProductPage fetchProducts(Integer pageNumber,Integer pageSize,String searchQuery,List<String> selectedFamilies,String sortField,String sortDir){
+        if(pageNumber==null) pageNumber=1;
+        if(pageSize==null) pageSize=12;
         Integer offsetRows =(pageNumber - 1) * pageSize;
         String likePattern;
         Boolean hasSearch=false;
@@ -32,7 +32,7 @@ public with sharing class ProductController{
         if(selectedFamilies != null && !selectedFamilies.isEmpty()){
             if(hasSearch){
                 products=[SELECT 
-                        Id, Name, ProductCode, Description, Family, IsActive, QuantityUnitOfMeasure, StockKeepingUnit, ProductImage__c
+                        Id,Name,ProductCode,Description,Family,IsActive,QuantityUnitOfMeasure,StockKeepingUnit,ProductImage__c
                     FROM 
                         Product2
                     WHERE 
@@ -49,7 +49,7 @@ public with sharing class ProductController{
                         :offsetRows];
             }else{
                 products=[SELECT 
-                                Id, Name, ProductCode, Description, Family, IsActive, QuantityUnitOfMeasure, StockKeepingUnit, ProductImage__c
+                                Id,Name,ProductCode,Description,Family,IsActive,QuantityUnitOfMeasure,StockKeepingUnit,ProductImage__c
                             FROM 
                                 Product2
                             WHERE    
@@ -96,7 +96,7 @@ public with sharing class ProductController{
         }else{
             if(hasSearch){
                 products=[SELECT 
-                        Id, Name, ProductCode, Description, Family, IsActive, QuantityUnitOfMeasure, StockKeepingUnit, ProductImage__c
+                        Id,Name,ProductCode,Description,Family,IsActive,QuantityUnitOfMeasure,StockKeepingUnit,ProductImage__c
                     FROM 
                         Product2
                     WHERE 
@@ -111,7 +111,7 @@ public with sharing class ProductController{
                         :offsetRows];
             }else{
                 products=[SELECT 
-                        Id, Name, ProductCode, Description, Family, IsActive, QuantityUnitOfMeasure, StockKeepingUnit, ProductImage__c
+                        Id,Name,ProductCode,Description,Family,IsActive,QuantityUnitOfMeasure,StockKeepingUnit,ProductImage__c
                     FROM 
                         Product2
                     WHERE    
@@ -133,8 +133,8 @@ public with sharing class ProductController{
             total=totalFiltered;
         }
         List<ProductDTO> dtos=new List<ProductDTO>();
-        Map<String, Id> skuToProductId=new Map<String, Id>();
-        for(Product2 p : products){
+        Map<String,Id> skuToProductId=new Map<String,Id>();
+        for(Product2 p:products){
             ProductDTO dto=new ProductDTO();
             dto.id=p.Id;
             dto.name=p.Name;
@@ -145,12 +145,12 @@ public with sharing class ProductController{
             dto.sku=p.StockKeepingUnit;
             dto.uom=p.QuantityUnitOfMeasure;
             dto.pbes=new List<ProductPBEInfo>();
-            if(!String.isBlank(dto.sku)) skuToProductId.put(dto.sku.trim(), p.Id);
+            if(!String.isBlank(dto.sku)) skuToProductId.put(dto.sku.trim(),p.Id);
             dtos.add(dto);
         }
-        if(skuToProductId.isEmpty()) return new ProductPage(dtos, total, pageNumber, pageSize);
+        if(skuToProductId.isEmpty()) return new ProductPage(dtos,total,pageNumber,pageSize);
         List<String> skuList=new List<String>(skuToProductId.keySet());
-        return new ProductPage(dtos, total, pageNumber, pageSize);
+        return new ProductPage(dtos,total,pageNumber,pageSize);
     }
 /*****************************************************************************
  * @AuthorName:     CRM Team Innovation
@@ -198,10 +198,10 @@ public with sharing class ProductController{
 /*****************************************************************************
  * @AuthorName:     CRM Team Innovation
  * @MethodName:      ProductPage
- * @params :        recs, total, pageNum, pSize
+ * @params:       recs,total,pageNum,pSize
  * @Description:     This method is used to map the pagination details.
  ***********************************************************************************/
-        public ProductPage(List<ProductDTO> recs, Integer total, Integer pageNum, Integer pSize){
+        public ProductPage(List<ProductDTO> recs,Integer total,Integer pageNum,Integer pSize){
             this.records=recs;
             this.totalSize=total;
             this.pageNumber=pageNum;
@@ -224,7 +224,7 @@ public with sharing class ProductController{
                                         Family != null 
                                     ORDER BY 
                                         Family];
-        for(Product2 product : products){
+        for(Product2 product:products){
             families.add(product.Family);
         }
         List<String> sortedFamilies=new List<String>(families);
@@ -234,17 +234,17 @@ public with sharing class ProductController{
 /*****************************************************************************
  * @AuthorName:     CRM Team Innovation
  * @MethodName:      caller
- * @param :        recordId
+ * @param:       recordId
  * @Description:     This method is used to fetch the product details from the server org.
  ***********************************************************************************/
    @AuraEnabled
     public static ProductPBEInfo caller(Id recordId){
-        if(recordId == null) return null;
+        if(recordId==null) return null;
         Product2 prod;
         try{
             prod=[
                 SELECT 
-                    Id, Name, StockKeepingUnit, ExternalId
+                    Id,Name,StockKeepingUnit,ExternalId
                 FROM 
                     Product2
                 WHERE 
@@ -255,7 +255,7 @@ public with sharing class ProductController{
             System.debug('Product query failed: ' + e.getMessage());
             return null;
         }
-        if(prod == null) return null;
+        if(prod==null) return null;
         ProductPBEInfo result=new ProductPBEInfo();
         result.productId=prod.Id;
         result.productName=prod.Name;
@@ -263,21 +263,21 @@ public with sharing class ProductController{
         result.isFetchedFromOrg=false;
         Decimal unitPriceFromRemote=null;
         Boolean remoteSucceeded=false;
-        String externalId=prod.ExternalId != null ? String.valueOf(prod.ExternalId).trim() : null;
+        String externalId=prod.ExternalId != null ? String.valueOf(prod.ExternalId).trim():null;
         if(String.isNotBlank(externalId)){
             Http http=new Http();
             HttpRequest req=new HttpRequest();
             req.setEndpoint(NAMED_CREDENTIAL_ENDPOINT);
             req.setMethod('POST');
-            req.setHeader('Content-Type', 'text/plain');
-            req.setHeader('Accept', 'application/json');
+            req.setHeader('Content-Type','text/plain');
+            req.setHeader('Accept','application/json');
             req.setBody(externalId); 
             try{
                 HttpResponse resp=http.send(req);
                 Integer status=resp.getStatusCode();
                 String body=resp.getBody();
                 if(status >= 200 && status < 300){
-                    if(body == 'null'){
+                    if(body=='null'){
                         unitPriceFromRemote=null;
                     }else{
                         Object parsed=JSON.deserializeUntyped(body); 
@@ -298,7 +298,7 @@ public with sharing class ProductController{
         try{
             PricebookEntry pb=[
                 SELECT 
-                    Id, UnitPrice, Pricebook2Id, Pricebook2.Name, IsActive
+                    Id,UnitPrice,Pricebook2Id,Pricebook2.Name,IsActive
                 FROM 
                     PricebookEntry
                 WHERE 
@@ -312,7 +312,7 @@ public with sharing class ProductController{
             if(pb != null){
                 result.pricebookEntryId=pb.Id;
                 result.pricebookId=pb.Pricebook2Id;
-                result.pricebookName =(pb.Pricebook2 != null) ? pb.Pricebook2.Name : null;
+                result.pricebookName =(pb.Pricebook2 != null) ? pb.Pricebook2.Name:null;
                 result.unitPrice=pb.UnitPrice;
                 result.isActive=pb.IsActive;
             }
