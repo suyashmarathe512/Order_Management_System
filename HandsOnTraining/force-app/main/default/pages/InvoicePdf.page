@@ -25,7 +25,7 @@
         <div>
             <table>
                 <tr>
-                    <td><strong>Invoice Date</strong><br/>{!order.EffectiveDate}</td>
+                    <td><strong>Invoice Date</strong><br/>{!order.CreatedDate}</td>
                     <td><strong>Bill To</strong><br/>{!order.Account.Name}</td>
                     <td><strong>Ship To</strong><br/>{!order.ShippingStreet}<br/>{!order.ShippingCity}</td>
                 </tr>
@@ -47,18 +47,18 @@
                         <tr>
                             <td>{!idx}</td>
                             <td>{!it.PricebookEntry.Product2.Name}</td>
-                            <td class="right">₹{!IF(it.UnitPrice==null, 0, it.UnitPrice)}</td>
+                            <td class="right">₹<apex:outputText value="{0, number, ###,###.##}"><apex:param value="{!IF(it.UnitPrice==null, 0, it.UnitPrice)}"/></apex:outputText></td>
                             <td class="right">{!IF(it.Quantity==null, 1, it.Quantity)}</td>
-                            <td class="right">₹{! (IF(it.UnitPrice==null, 0, it.UnitPrice) * IF(it.Quantity==null, 1, it.Quantity))}</td>
+                            <td class="right">₹<apex:outputText value="{0, number, ###,###.##}"><apex:param value="{! (IF(it.UnitPrice==null, 0, it.UnitPrice) * IF(it.Quantity==null, 1, it.Quantity))}"/></apex:outputText></td>
                         </tr>
                     </apex:repeat>
                 </tbody>
             </table>
             <div style="width:100%; display:flex; justify-content:flex-end; margin-top:10px;">
                 <table style="width:300px;">
-                    <tr><td>Subtotal</td><td class="right">₹{!subtotal}</td></tr>
+                    <tr><td>Subtotal</td><td class="right">₹<apex:outputText value="{0, number, ###,###.##}"><apex:param value="{!subtotal}"/></apex:outputText></td></tr>
                     <tr><td>Tax</td><td class="right">{!tax}</td></tr>
-                    <tr><td style="font-weight:bold">Total</td><td class="right" style="font-weight:bold">₹{!total}</td></tr>
+                    <tr><td style="font-weight:bold">Total</td><td class="right" style="font-weight:bold">₹<apex:outputText value="{0, number, ###,###.##}"><apex:param value="{!total}"/></apex:outputText></td></tr>
                 </table>
             </div>
         </div>

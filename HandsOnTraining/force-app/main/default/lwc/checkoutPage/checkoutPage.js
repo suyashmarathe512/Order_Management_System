@@ -27,10 +27,19 @@ export default class CheckoutPage extends NavigationMixin(LightningElement) {
     return this._cart;
   }
   set cart(value) {
-    this._cart = (value || []).map(i => ({
-      ...i,
-      lineTotal: Number(i.price || 0) * Number(i.qty || 1)
-    }));
+    this._cart = (value || []).map(i => {
+      const price = Number(i.price || 0);
+      const qty = Number(i.qty || 1);
+      const lineTotal = price * qty;
+      return {
+        ...i,
+        price,
+        qty,
+        lineTotal,
+        formattedPrice: this.currencyFormatter(price),
+        formattedLineTotal: this.currencyFormatter(lineTotal)
+      };
+    });
   }
   connectedCallback() {
     try {
@@ -71,6 +80,10 @@ export default class CheckoutPage extends NavigationMixin(LightningElement) {
     return this.cart.reduce((sum, it) => sum + ((it.price || 0) * (it.qty || 1)), 0);
   }
 
+  get formattedTotal() {
+    return this.currencyFormatter(this.total);
+  }
+
   get currencyFormatter() {
     return (val) => {
       const num = Number(val || 0);
@@ -97,7 +110,15 @@ export default class CheckoutPage extends NavigationMixin(LightningElement) {
       next = dir === 'inc' ? next + 1 : next - 1;
       if (!next || next < 1) next = 1;
       if (next > 9999) next = 9999;
-      return { ...i, qty: next };
+      const price = Number(i.price || 0);
+      const lineTotal = price * next;
+      return {
+        ...i,
+        qty: next,
+        lineTotal,
+        formattedPrice: this.currencyFormatter(price),
+        formattedLineTotal: this.currencyFormatter(lineTotal)
+      };
     });
     try {
       sessionStorage.setItem('cart', JSON.stringify(this.cart));
@@ -118,7 +139,10 @@ export default class CheckoutPage extends NavigationMixin(LightningElement) {
   removeLine(evt) {
     const id = evt.target.dataset.id;
     this._cart = this._cart.filter(i => i.id !== id);
-    sessionStorage.setItem('cart', JSON.stringify(this._cart));
+    try {
+      sessionStorage.setItem('cart', JSON.stringify(this._cart));
+    } catch (e) {
+    }
   }
   placeOrder() {
   const cartArray = Array.from(this.cart || []);

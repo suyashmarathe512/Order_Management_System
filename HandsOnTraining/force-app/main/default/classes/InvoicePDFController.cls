@@ -17,7 +17,7 @@ public with sharing class InvoicePDFController{
     public InvoicePDFController(){
         order=[
             SELECT 
-                Id, Name, EffectiveDate, AccountId,
+                Id, Name, CreatedDate, AccountId,
                 BillingStreet, BillingCity, BillingState, BillingPostalCode, BillingCountry,
                 ShippingStreet, ShippingCity, ShippingState, ShippingPostalCode, ShippingCountry,
                 Account.Name
