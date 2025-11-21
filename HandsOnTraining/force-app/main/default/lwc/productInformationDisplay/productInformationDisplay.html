@@ -4,7 +4,12 @@
       <div class="pid-left slds-col">
         <div class="pid-brand slds-grid slds-grid_vertical-align-center">
           <img src={cartIconUrl} alt="Cart" class="cart-icon" />
-          <span class="pid-title">Shopping Portal</span>
+          <div>
+            <span class="pid-title">Shopping Portal</span>
+            <template if:true={accountName}>
+              <p class="account-name"><strong>Account:</strong> {accountName}</p>
+            </template>
+          </div>
         </div>
       </div>
       <div class="pid-center slds-col slds-text-align_center">
@@ -41,6 +46,7 @@
       </div>
     </div>
   </header>
+
   <main class="pid-body">
     <div class="product-grid" onscroll={onGridScroll} data-id="productGrid" role="list">
       <template if:true={isLoading}>
@@ -50,24 +56,38 @@
           </div>
         </template>
       </template>
+
       <template if:true={products}>
         <template for:each={products} for:item="product">
           <div key={product.id} class="product-card-wrapper" role="listitem">
-            <c-product-card product={product} onaddtocart={handleAddToCart} onpbeinfo={handlePbeInfo} onpbeerror={handlePbeError} onloading={handleChildLoading}></c-product-card>
+            <c-product-card product={product} 
+              record-id={recordId} 
+              onaddtocart={handleAddToCart}
+              onremovefromcart={removeFromCart}
+              onpbeinfo={handlePbeInfo} 
+              onpbeerror={handlePbeError} 
+              onloading={handleChildLoading}>
+            </c-product-card>
           </div>
         </template>
       </template>
+
       <template if:true={noResults}>
         <div class="no-results">No products found.</div>
       </template>
     </div>
-    <div class="load-more-placeholder" if:true={isLoadingMore}>
-      <lightning-spinner alternative-text="Loading more products"></lightning-spinner>
-    </div>
+
+    <template if:true={isLoadingMore}>
+      <div class="load-more-placeholder">
+        <lightning-spinner alternative-text="Loading more products"></lightning-spinner>
+      </div>
+    </template>
   </main>
+
   <footer class="pid-footer">
     <div class="footer-inner">Showing {products.length} of {totalSize} products</div>
   </footer>
+
   <template if:true={showFilterModal}>
     <section class="filter-modal" role="dialog" aria-modal="true" aria-label="Filter Products">
       <div class="filter-header">
@@ -94,6 +114,7 @@
     </section>
     <div class="modal-backdrop" onclick={closeFilterPanel}></div>
   </template>
+
   <template if:true={showPbeModal}>
     <section class="modal modal-large" role="dialog" aria-modal="true" aria-label="Pricebook Info">
       <div class="modal-header">
@@ -134,6 +155,7 @@
     </section>
     <div class="modal-backdrop" onclick={closePbeModal}></div>
   </template>
+
   <template if:true={showModal}>
     <section class="modal modal-large" role="dialog" aria-modal="true" aria-label="Product Details">
       <div class="modal-header">
@@ -164,6 +186,7 @@
     </section>
     <div class="modal-backdrop" onclick={closeModal}></div>
   </template>
+
   <template if:true={showCart}>
     <section class="cart-drawer" role="dialog" aria-modal="true" aria-label="Cart">
       <div class="cart-header">
@@ -175,7 +198,6 @@
             <div key={it.id} class="cart-item">
               <div class="cart-item-left">
                 <div class="cart-item-name">{it.name}</div>
-                <div class="cart-item-sku">SKU: {it.sku}</div>
               </div>
               <div class="cart-item-right">
                 <div class="cart-item-price">{it.formattedPrice}</div>
@@ -184,6 +206,29 @@
             </div>
           </template>
         </template>
+
+        <template if:true={orderItems.length}>
+          <div class="draft-orders-section">
+            <h4>Draft Order Items</h4>
+            <template for:each={orderItems} for:item="item" for:index="index">
+              <div key={item.id} class="cart-item">
+                <div class="cart-item-left">
+                  <div class="cart-item-name">{item.productName}</div>
+                  <div class="cart-item-quantity">Qty: {item.quantity}</div>
+                  <template if:true={item.productCode}>
+                    <div class="cart-item-code">Code: {item.productCode}</div>
+                  </template>
+                </div>
+                <div class="cart-item-right">
+                  <div class="cart-item-price">{item.formattedUnitPrice}</div>
+                  <lightning-button-icon icon-name="utility:add" alternative-text="Add to Cart" onclick={addDraftItemToCart} data-index={index}></lightning-button-icon>
+                  <lightning-button-icon icon-name="utility:delete" alternative-text="Remove from Order" onclick={removeDraftItemFromCart} data-index={index}></lightning-button-icon>
+                </div>
+              </div>
+            </template>
+          </div>
+        </template>
+
         <template if:false={cartItems.length}>
           <div class="empty-cart">Your cart is empty.</div>
         </template>

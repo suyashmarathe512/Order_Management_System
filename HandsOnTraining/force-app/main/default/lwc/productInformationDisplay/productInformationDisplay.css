@@ -16,6 +16,11 @@
 /* brand/title */
 .pid-brand{display:flex; align-items:center; gap:10px; flex: 0 0 auto;}
 .pid-title{font-weight:700; font-size:2.25rem; color:#072048;}
+.account-name {
+    margin-top: 5px;
+    font-size: 1rem;
+    color: #333;
+}
 /* centered search */
 .pid-center{display:flex; justify-content:center; flex: 1;}
 .pid-search{width: 640px; max-width: 78vw;}
@@ -193,6 +198,21 @@
   align-items: center;
   padding: 0.5rem 0;
   border-bottom: 1px solid #f0f0f0;
+}
+.draft-orders-section h4 {
+  margin-top: 1rem;
+  margin-bottom: 0.5rem;
+  font-size: 1.1rem;
+  color: #333;
+}
+.cart-item-quantity {
+  font-size: 0.9rem;
+  color: #666;
+}
+.cart-item-code {
+  font-size: 0.8rem;
+  color: #888;
+  margin-top: 0.25rem;
 }
 .cart-footer{
   padding: 1rem;

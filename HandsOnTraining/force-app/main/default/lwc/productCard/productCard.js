@@ -2,6 +2,7 @@ import{LightningElement,api,track}from 'lwc';
 import caller from '@salesforce/apex/ProductController.caller';
 export default class ProductCard extends LightningElement{
   @track _product={};
+  @api recordId;
   @api
   get product(){
     return this._product;
@@ -56,6 +57,23 @@ export default class ProductCard extends LightningElement{
   get isFetchedFromOrg(){
     return !!(this._product &&(this._product.isFetchedFromOrg=== true||this._product.isPriceFromOrg=== true));
 }
+handleAdd(){
+    const detail = {
+      id: this._product?.id,
+      name: this._product?.name,
+      sku: this._product?.sku || this._product?.productCode,
+      price: this._product?.price
+    };
+    this.dispatchEvent(new CustomEvent('addtocart',{ detail, bubbles: true, composed: true }));
+  }
+
+  handleRemove(){
+    const detail = {
+      id: this._product?.id
+    };
+    this.dispatchEvent(new CustomEvent('removefromcart',{ detail, bubbles: true, composed: true }));
+  }
+
   async onView(){
     const viewBtn=this.template.querySelector('.btn-view');
     if(viewBtn) viewBtn.disabled=true;
@@ -70,7 +88,7 @@ export default class ProductCard extends LightningElement{
   }
     this.dispatchEvent(new CustomEvent('loading',{detail:{isLoading: true},bubbles: true,composed: true}));
     try{
-      const apexResult=await caller({recordId: productId});
+      const apexResult=await caller({recordId: productId, accountId: this.recordId});
       let pbeInfo=apexResult;
       if(typeof apexResult=== 'string'){
         try{pbeInfo=JSON.parse(apexResult);}catch(e){}
