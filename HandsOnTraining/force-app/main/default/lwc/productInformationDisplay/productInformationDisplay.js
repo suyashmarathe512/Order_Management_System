@@ -586,18 +586,24 @@ export default class ProductInformationDisplay extends NavigationMixin(Lightning
     this.dispatchEvent(new ShowToastEvent({title:'Checkout',message:`Proceeding with ${this.cartCount}items`,variant:'success'}));
     this.closeCart();
     const validatedCart=(this.cartItems || []).filter(item => item && item.id && item.sku);
+    // Add accountId and accountName to each cart item before storing in session storage
+    const cartWithAccountId = validatedCart.map(item => ({
+      ...item,
+      accountId: this.recordId
+    }));
     try{
-      sessionStorage.setItem('cart',JSON.stringify(validatedCart));
+      sessionStorage.setItem('cart',JSON.stringify(cartWithAccountId));
   }catch (e){
       console.error('sessionStorage set failed',e);
   }
-    this.dispatchEvent(new CustomEvent('cartupdate',{detail:{cart:validatedCart}}));
+    this.dispatchEvent(new CustomEvent('cartupdate',{detail:{cart:cartWithAccountId}}));
     this[NavigationMixin.Navigate]({
       type:'standard__navItemPage',
       attributes:{
         apiName:'Checkout_Page'
     },
       state:{
+        accountId: this.recordId,
         fromPid:'1'
     }
   });

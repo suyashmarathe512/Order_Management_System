@@ -98,22 +98,51 @@ public with sharing class CheckOutController{
         if(!missingProductIds.isEmpty()){
             throw new AuraHandledException('Missing PricebookEntry for ProductIds: ' + String.join(missingProductIds,','));
         }
-        Order ord=new Order();
-        ord.AccountId=accountId;
-        ord.Status='Draft';
-        ord.EffectiveDate=Date.today();
-        if(pricebookId != null) ord.Pricebook2Id=pricebookId;
-        ord.BillingStreet=billingStreet;
-        ord.BillingCity=billingCity;
-        ord.BillingState=billingState;
-        ord.BillingPostalCode=billingPostalCode;
-        ord.BillingCountry=billingCountry;
-        ord.ShippingStreet=shippingStreet;
-        ord.ShippingCity=shippingCity;
-        ord.ShippingState=shippingState;
-        ord.ShippingPostalCode=shippingPostalCode;
-        ord.ShippingCountry=shippingCountry;
-        insert ord;
+        // Check for existing draft order for the account
+        List<Order> existingOrders = [
+            SELECT Id, Status, EffectiveDate, BillingStreet, BillingCity, BillingState, BillingPostalCode, BillingCountry,
+                   ShippingStreet, ShippingCity, ShippingState, ShippingPostalCode, ShippingCountry
+            FROM Order
+            WHERE AccountId = :accountId AND Status = 'Draft'
+            LIMIT 1
+        ];
+
+        Order ord;
+        Boolean isNewOrder = false;
+        if (!existingOrders.isEmpty()) {
+            ord = existingOrders[0];
+            // Update addresses and effective date
+            ord.EffectiveDate = Date.today();
+            ord.BillingStreet = billingStreet;
+            ord.BillingCity = billingCity;
+            ord.BillingState = billingState;
+            ord.BillingPostalCode = billingPostalCode;
+            ord.BillingCountry = billingCountry;
+            ord.ShippingStreet = shippingStreet;
+            ord.ShippingCity = shippingCity;
+            ord.ShippingState = shippingState;
+            ord.ShippingPostalCode = shippingPostalCode;
+            ord.ShippingCountry = shippingCountry;
+            update ord;
+        } else {
+            ord = new Order();
+            ord.AccountId = accountId;
+            ord.Status = 'Draft';
+            ord.EffectiveDate = Date.today();
+            if (pricebookId != null) ord.Pricebook2Id = pricebookId;
+            ord.BillingStreet = billingStreet;
+            ord.BillingCity = billingCity;
+            ord.BillingState = billingState;
+            ord.BillingPostalCode = billingPostalCode;
+            ord.BillingCountry = billingCountry;
+            ord.ShippingStreet = shippingStreet;
+            ord.ShippingCity = shippingCity;
+            ord.ShippingState = shippingState;
+            ord.ShippingPostalCode = shippingPostalCode;
+            ord.ShippingCountry = shippingCountry;
+            insert ord;
+            isNewOrder = true;
+        }
         List<OrderItem> itemsToInsert=new List<OrderItem>();
         Decimal total=0;
         Integer lineCount=0;
@@ -190,6 +219,16 @@ public with sharing class CheckOutController{
     public class AccountInfo{
         @AuraEnabled public Id id;
         @AuraEnabled public String name;
+        @AuraEnabled public String billingStreet;
+        @AuraEnabled public String billingCity;
+        @AuraEnabled public String billingState;
+        @AuraEnabled public String billingPostalCode;
+        @AuraEnabled public String billingCountry;
+        @AuraEnabled public String shippingStreet;
+        @AuraEnabled public String shippingCity;
+        @AuraEnabled public String shippingState;
+        @AuraEnabled public String shippingPostalCode;
+        @AuraEnabled public String shippingCountry;
     }
     @AuraEnabled
     public static AccountInfo getAccountInfo(Id accountId){
@@ -197,7 +236,8 @@ public with sharing class CheckOutController{
             return null;
         }
         Account acc=[SELECT 
-                            Id,Name 
+                            Id,Name,BillingStreet,BillingCity,BillingState,BillingPostalCode,BillingCountry,
+                            ShippingStreet,ShippingCity,ShippingState,ShippingPostalCode,ShippingCountry
                         FROM 
                             Account 
                         WHERE 
@@ -207,6 +247,16 @@ public with sharing class CheckOutController{
             AccountInfo accInfo=new AccountInfo();
             accInfo.id=acc.Id;
             accInfo.name=acc.Name;
+            accInfo.billingStreet=acc.BillingStreet;
+            accInfo.billingCity=acc.BillingCity;
+            accInfo.billingState=acc.BillingState;
+            accInfo.billingPostalCode=acc.BillingPostalCode;
+            accInfo.billingCountry=acc.BillingCountry;
+            accInfo.shippingStreet=acc.ShippingStreet;
+            accInfo.shippingCity=acc.ShippingCity;
+            accInfo.shippingState=acc.ShippingState;
+            accInfo.shippingPostalCode=acc.ShippingPostalCode;
+            accInfo.shippingCountry=acc.ShippingCountry;
             return accInfo;
         }
         return null;

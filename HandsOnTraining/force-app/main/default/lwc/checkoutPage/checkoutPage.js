@@ -1,17 +1,15 @@
 import { LightningElement, track, api, wire } from 'lwc';
-import { getListUi } from 'lightning/uiListApi';
 import createOrderFromCart from '@salesforce/apex/CheckOutController.createOrderFromCart';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 import { NavigationMixin } from 'lightning/navigation';
-import ACCOUNT_OBJECT from '@salesforce/schema/Account';
+import { CurrentPageReference } from 'lightning/navigation';
+import getAccountInfo from '@salesforce/apex/CheckOutController.getAccountInfo';
 export default class CheckoutPage extends NavigationMixin(LightningElement){
   @track _cart=[];
   @track isLoading=false;
   @track orderResult=null;
   @track selectedAccountId=null;
-  @track accounts = [];
-  @track error;
-  @track showAccountModal=false;
+  @track accountName=null;
   @track billingAddress={
     street:'',
     city:'',
@@ -51,12 +49,19 @@ export default class CheckoutPage extends NavigationMixin(LightningElement){
       if(raw){
         const parsed=JSON.parse(raw);
         if(Array.isArray(parsed)){
+          // Extract account info from first item (all items should have same account)
+          if(parsed.length > 0 && parsed[0].accountId){
+            this.selectedAccountId = parsed[0].accountId;
+            // Get account info when component loads
+            this.getAccountDetails(this.selectedAccountId);
+          }
           this.cart=parsed.map(item=>({
             id:item.id,
             name:item.name,
             sku:item.sku,
             price:Number(item.price ?? item.unitPrice ?? item.UnitPrice ?? 0),
-            qty:Number(item.qty || 1)
+            qty:Number(item.qty || 1),
+            accountId: item.accountId || null
         }));
       }
     }
@@ -69,7 +74,8 @@ export default class CheckoutPage extends NavigationMixin(LightningElement){
           name:item.name,
           sku:item.sku,
           price:Number(item.price ?? item.unitPrice ?? item.UnitPrice ?? 0),
-          qty:Number(item.qty || 1)
+          qty:Number(item.qty || 1),
+          accountId: item.accountId || null
       }));
         try{
           sessionStorage.setItem('cart',JSON.stringify(this.cart));
@@ -79,6 +85,17 @@ export default class CheckoutPage extends NavigationMixin(LightningElement){
   };
     console.log('cart:',this.cart);
     this.addEventListener('cartupdate',handleCartUpdate);
+    
+    // Empty the cart from sessionStorage when arriving at checkout page
+    // This ensures the cart is cleared when user gets redirected to checkout
+    try {
+      sessionStorage.removeItem('cart');
+    } catch(e) {
+      // Ignore errors when clearing sessionStorage
+    }
+
+    // Add beforeunload event listener for refresh warning
+    window.addEventListener('beforeunload', this.handleBeforeUnload);
 }
   get total(){
     return this.cart.reduce((sum,it)=> sum +((it.price || 0) *(it.qty || 1)),0);
@@ -229,28 +246,34 @@ export default class CheckoutPage extends NavigationMixin(LightningElement){
       this.isLoading=false;
   });
 }
-  handleAccountSelection(evt){
-    this.selectedAccountId = evt.detail.value;
-}
-  openNewAccountModal(){
-    this.showAccountModal=true;
-}
-
-  closeAccountModal(){
-    this.showAccountModal=false;
-}
-  handleAccountSuccess(event){
-    const accountId=event.detail.id;
-    const accountName=event.detail.fields.Name.value;
-    this.selectedAccountId=accountId;
-    this.showAccountModal=false;
-    this.refreshAccounts();
-    this.dispatchEvent(new ShowToastEvent({
-      title:'Account Created',
-      message:`Account "${accountName}" created successfully`,
-      variant:'success'
-  }));
-}
+  getAccountDetails(accountId) {
+    if (accountId) {
+      getAccountInfo({accountId: accountId})
+        .then(result => {
+          if (result) {
+            this.accountName = result.name;
+            // Auto-populate shipping and billing addresses from account fields
+            this.billingAddress = {
+              street: result.billingStreet || '',
+              city: result.billingCity || '',
+              state: result.billingState || '',
+              postalCode: result.billingPostalCode || '',
+              country: result.billingCountry || ''
+            };
+            this.shippingAddress = {
+              street: result.shippingStreet || '',
+              city: result.shippingCity || '',
+              state: result.shippingState || '',
+              postalCode: result.shippingPostalCode || '',
+              country: result.shippingCountry || ''
+            };
+          }
+        })
+        .catch(error => {
+          console.error('Error fetching account details:', error);
+        });
+    }
+  }
   handleBillingChange(evt){
     this.billingAddress={...evt.detail};
 }
@@ -258,19 +281,26 @@ export default class CheckoutPage extends NavigationMixin(LightningElement){
     this.shippingAddress={...evt.detail};
 }
 
-  @wire(getListUi, { objectApiName: ACCOUNT_OBJECT, listViewApiName: 'AllAccounts', key: '$accountRefreshKey' })
-  wiredAccounts({ error, data }) {
-    if (data) {
-      this.accounts = data.records.records.map(record => ({
-        label: record.fields.Name.value,
-        value: record.id
-      }));
-      this.error = undefined;
-    } else if (error) {
-      this.error = error;
-      this.accounts = [];
+  @wire(CurrentPageReference)
+  wiredPageRef(pageRef) {
+    if (pageRef && pageRef.state) {
+      const accountId = pageRef.state.accountId;
+      if (accountId && accountId !== this.selectedAccountId) {
+        this.selectedAccountId = accountId;
+        this.getAccountDetails(accountId);
+      }
     }
   }
-  refreshAccounts(){this.accountRefreshKey = Date.now();
+
+  disconnectedCallback() {
+    // Remove beforeunload event listener
+    window.removeEventListener('beforeunload', this.handleBeforeUnload);
+  }
+
+  handleBeforeUnload(event) {
+    // Show warning message on refresh/close
+    event.preventDefault();
+    event.returnValue = 'Are you sure you want to refresh? Your cart and entered information will be lost.';
+    return event.returnValue;
   }
 }

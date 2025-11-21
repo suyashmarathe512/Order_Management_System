@@ -81,21 +81,11 @@
               </div>
               <div class="slds-col slds-size_1-of-1">
                 <div class="slds-form-element">
-                  <label class="slds-form-element__label" for="accountPicker">Account (required)</label>
                   <div class="slds-form-element__control">
                     <div class="slds-grid slds-gutters">
-                      <div class="slds-col slds-size_1-of-2">
-                        <lightning-combobox
-                          name="account"
-                          placeholder="Select an Account"
-                          options={accounts}
-                          value={selectedAccountId}
-                          onchange={handleAccountSelection}
-                          >
-                        </lightning-combobox>
-                      </div>
-                      <div class="slds-col slds-size_1-of-2">
-                        <button onclick={openNewAccountModal} class="slds-button slds-button_brand new-account-btn">New Account</button>
+                      <div class="slds-col slds-size_1-of-1">
+                        <div class="slds-section__title" style="font-weight: bold; font-size: 1.2em;">Account: {accountName}</div>
+                        <input type="hidden" name="accountId" value={selectedAccountId} />
                       </div>
                     </div>
                   </div>
@@ -105,17 +95,36 @@
                 <div class="slds-section">
                   <h3 class="slds-section__title address-title">Billing Address</h3>
                   <div class="slds-section__content address-content">
-                    <lightning-input-address
-                      address-label="Billing Address"
-                      street-label="Street"
-                      city-label="City"
-                      country-label="Country"
-                      province-label="State"
-                      postal-code-label="Postal Code"
-                      address={billingAddress}
-                      onchange={handleBillingChange}
-                      >
-                    </lightning-input-address>
+                    <div class="slds-form-element">
+                      <label class="slds-form-element__label">Street</label>
+                      <div class="slds-form-element__control">
+                        <input type="text" class="slds-input" value={billingAddress.street} onchange={handleBillingChange} data-field="street" />
+                      </div>
+                    </div>
+                    <div class="slds-form-element">
+                      <label class="slds-form-element__label">City</label>
+                      <div class="slds-form-element__control">
+                        <input type="text" class="slds-input" value={billingAddress.city} onchange={handleBillingChange} data-field="city" />
+                      </div>
+                    </div>
+                    <div class="slds-form-element">
+                      <label class="slds-form-element__label">State</label>
+                      <div class="slds-form-element__control">
+                        <input type="text" class="slds-input" value={billingAddress.state} onchange={handleBillingChange} data-field="state" />
+                      </div>
+                    </div>
+                    <div class="slds-form-element">
+                      <label class="slds-form-element__label">Postal Code</label>
+                      <div class="slds-form-element__control">
+                        <input type="text" class="slds-input" value={billingAddress.postalCode} onchange={handleBillingChange} data-field="postalCode" />
+                      </div>
+                    </div>
+                    <div class="slds-form-element">
+                      <label class="slds-form-element__label">Country</label>
+                      <div class="slds-form-element__control">
+                        <input type="text" class="slds-input" value={billingAddress.country} onchange={handleBillingChange} data-field="country" />
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -123,17 +132,36 @@
                 <div class="slds-section">
                   <h3 class="slds-section__title address-title">Shipping Address</h3>
                   <div class="slds-section__content address-content">
-                    <lightning-input-address
-                      address-label="Shipping Address"
-                      street-label="Street"
-                      city-label="City"
-                      country-label="Country"
-                      province-label="State"
-                      postal-code-label="Postal Code"
-                      address={shippingAddress}
-                      onchange={handleShippingChange}
-                      >
-                    </lightning-input-address>
+                    <div class="slds-form-element">
+                      <label class="slds-form-element__label">Street</label>
+                      <div class="slds-form-element__control">
+                        <input type="text" class="slds-input" value={shippingAddress.street} onchange={handleShippingChange} data-field="street" />
+                      </div>
+                    </div>
+                    <div class="slds-form-element">
+                      <label class="slds-form-element__label">City</label>
+                      <div class="slds-form-element__control">
+                        <input type="text" class="slds-input" value={shippingAddress.city} onchange={handleShippingChange} data-field="city" />
+                      </div>
+                    </div>
+                    <div class="slds-form-element">
+                      <label class="slds-form-element__label">State</label>
+                      <div class="slds-form-element__control">
+                        <input type="text" class="slds-input" value={shippingAddress.state} onchange={handleShippingChange} data-field="state" />
+                      </div>
+                    </div>
+                    <div class="slds-form-element">
+                      <label class="slds-form-element__label">Postal Code</label>
+                      <div class="slds-form-element__control">
+                        <input type="text" class="slds-input" value={shippingAddress.postalCode} onchange={handleShippingChange} data-field="postalCode" />
+                      </div>
+                    </div>
+                    <div class="slds-form-element">
+                      <label class="slds-form-element__label">Country</label>
+                      <div class="slds-form-element__control">
+                        <input type="text" class="slds-input" value={shippingAddress.country} onchange={handleShippingChange} data-field="country" />
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -157,32 +185,8 @@
             </div>
           </template>
         </div>
-  </div>
-  <template if:true={showAccountModal}>
-    <section role="dialog" tabindex="-1" aria-labelledby="modal-heading-01" aria-modal="true" aria-describedby="modal-content-id-1" class="slds-modal slds-fade-in-open">
-      <div class="slds-modal__container">
-        <header class="slds-modal__header">
-          <button class="slds-button slds-button_icon slds-modal__close" title="Close" onclick={closeAccountModal}>
-            <lightning-icon icon-name="utility:close" alternative-text="close" size="small"></lightning-icon>
-          </button>
-          <h2 id="modal-heading-01" class="slds-modal__title slds-hyphenate">New Account</h2>
-        </header>
-        <div class="slds-modal__content" id="modal-content-id-1" style="padding: 20px;">
-          <lightning-record-edit-form object-api-name="Account" onsuccess={handleAccountSuccess}>
-            <lightning-input-field field-name="Name" required></lightning-input-field>
-            <lightning-input-field field-name="Type"></lightning-input-field>
-            <lightning-input-field field-name="Industry"></lightning-input-field>
-            <lightning-input-field field-name="Phone"></lightning-input-field>
-            <div class="slds-m-top_medium">
-              <lightning-button variant="brand" type="submit" label="Create Account"></lightning-button>
-            </div>
-          </lightning-record-edit-form>
-        </div>
       </div>
-    </section>
-    <div class="slds-backdrop slds-backdrop_open"></div>
-  </template>
-</template>
+    </template>
     <template if:false={cart.length}>
       <div class="slds-text-align_center empty-cart">
         <div>Your cart is empty.</div>
