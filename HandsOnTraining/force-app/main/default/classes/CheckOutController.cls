@@ -484,6 +484,26 @@ public with sharing class CheckOutController{
         return [SELECT Id, ContractNumber, Status, StartDate, EndDate FROM Contract WHERE AccountId = :accountId AND Status = 'Activated' ORDER BY ContractNumber];
     }
 
+    /**
+     * Deletes an OrderItem record by Id
+     * @param orderItemId The Id of the OrderItem to delete
+     */
+    @AuraEnabled
+    public static void deleteOrderItem(Id orderItemId) {
+        if (orderItemId == null) {
+            throw new AuraHandledException('OrderItem Id is required');
+        }
+        
+        // Query the OrderItem to verify it exists
+        List<OrderItem> orderItems = [SELECT Id FROM OrderItem WHERE Id = :orderItemId LIMIT 1];
+        if (orderItems.isEmpty()) {
+            throw new AuraHandledException('OrderItem not found');
+        }
+        
+        // Delete the OrderItem
+        delete orderItems[0];
+    }
+
     @future(callout=true)
     public static void sendPdfToFileService(Id orderId,String fileName){
         PageReference pr=new PageReference('/apex/InvoicePDF');

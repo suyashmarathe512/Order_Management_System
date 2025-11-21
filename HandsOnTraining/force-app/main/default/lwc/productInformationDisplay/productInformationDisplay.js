@@ -6,6 +6,7 @@ import{NavigationMixin}from 'lightning/navigation';
 import CartIcon from '@salesforce/resourceUrl/CartIcon';
 import getAccountName from '@salesforce/apex/ProductController.getAccountName';
 import getOrdersForAccount from '@salesforce/apex/ProductController.getOrdersForAccount';
+import deleteOrderItem from '@salesforce/apex/CheckOutController.deleteOrderItem';
 import{CurrentPageReference}from 'lightning/navigation';
 
 export default class ProductInformationDisplay extends NavigationMixin(LightningElement){
@@ -522,7 +523,6 @@ export default class ProductInformationDisplay extends NavigationMixin(Lightning
   closeCart(){
     this.showCart=false;
 }
-
   // Remove from client cart (UI-only)
   async removeFromCart(evt){
     const idToRemove=evt.currentTarget.dataset.id;
@@ -531,7 +531,6 @@ export default class ProductInformationDisplay extends NavigationMixin(Lightning
     this.saveCartToSession();
     this.dispatchEvent(new ShowToastEvent({title:'Removed',message:'Item removed from cart',variant:'success'}));
 }
-
   /* -----------------------
      Draft order handler (UI-only)
      - addDraftItemToCart:add to client cart and remove the draft row from UI immediately
@@ -570,14 +569,42 @@ export default class ProductInformationDisplay extends NavigationMixin(Lightning
     this.dispatchEvent(new ShowToastEvent({title:'Added to cart',message:draftItem.productName || 'Product added',variant:'success'}));
 }
 
-  // removeDraftItemFromCart:keep server-side logic out of cart UI; show info
+  // removeDraftItemFromCart:delete the OrderItem from the org and add it back to cart
   async removeDraftItemFromCart(evt){
-    this.dispatchEvent(new ShowToastEvent({
-      title:'Action blocked',
-      message:'Draft order removals are handled during checkout. No server changes were made here.',
-      variant:'info'
-  }));
-}
+    const itemIndex = evt.currentTarget.dataset.index;
+    const draftItem = this.orderItems[itemIndex];
+    
+    if (!draftItem) {
+      this.dispatchEvent(new ShowToastEvent({
+        title:'Invalid item',
+        message:'Cannot remove item from cart',
+        variant:'error'
+      }));
+      return;
+    }
+
+    try {
+      // Call the Apex method to delete the OrderItem from the org
+      await deleteOrderItem({ orderItemId: draftItem.id });
+      this.saveCartToSession();
+
+      // Remove the draft row from the UI (client-only)
+      this.orderItems = (this.orderItems || []).filter(oi => oi && oi.id !== draftItem.id);
+
+      this.dispatchEvent(new ShowToastEvent({
+        title:'Removed and Added to Cart',
+        message: `${draftItem.productName} was removed from draft order and added to cart`,
+        variant:'success'
+      }));
+    } catch (error) {
+      console.error('Error removing draft item:', error);
+      this.dispatchEvent(new ShowToastEvent({
+        title:'Error',
+        message: error.body?.message || error.message || 'Failed to remove item from draft order',
+        variant:'error'
+      }));
+    }
+  }
 
   // -----------------------
   // checkout / navigation
