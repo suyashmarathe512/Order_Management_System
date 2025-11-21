@@ -1,15 +1,19 @@
 import { LightningElement, track, api, wire } from 'lwc';
 import createOrderFromCart from '@salesforce/apex/CheckOutController.createOrderFromCart';
+import saveOrderAsDraft from '@salesforce/apex/CheckOutController.saveOrderAsDraft';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 import { NavigationMixin } from 'lightning/navigation';
 import { CurrentPageReference } from 'lightning/navigation';
 import getAccountInfo from '@salesforce/apex/CheckOutController.getAccountInfo';
+import getContractsForAccount from '@salesforce/apex/CheckOutController.getContractsForAccount';
 export default class CheckoutPage extends NavigationMixin(LightningElement){
   @track _cart=[];
   @track isLoading=false;
   @track orderResult=null;
   @track selectedAccountId=null;
   @track accountName=null;
+  @track selectedContractId=null;
+  @track contracts = [];
   @track billingAddress={
     street:'',
     city:'',
@@ -183,30 +187,52 @@ export default class CheckoutPage extends NavigationMixin(LightningElement){
   }));
     return;
 }
+  if(!this.selectedContractId){
+    this.dispatchEvent(new ShowToastEvent({
+      title:'Contract required',
+      message:'Select a Contract',
+      variant:'warning'
+  }));
+    return;
+}
   this.isLoading=true;
   const productIds=cartArray.map(item=> item.id);
   const names=cartArray.map(item=> item.name);
   const skus=cartArray.map(item=> item.sku);
   const qtys=cartArray.map(item=> item.qty);
   const prices=cartArray.map(item=> item.price);
-  createOrderFromCart({
-    productIds,
-    names,
-    skus,
-    qtys,
-    prices,
-    accountId:this.selectedAccountId,
-    billingStreet:this.billingAddress.street,
-    billingCity:this.billingAddress.city,
-    billingState:this.billingAddress.state,
-    billingPostalCode:this.billingAddress.postalCode,
-    billingCountry:this.billingAddress.country,
-    shippingStreet:this.shippingAddress.street,
-    shippingCity:this.shippingAddress.city,
-    shippingState:this.shippingAddress.state,
-    shippingPostalCode:this.shippingAddress.postalCode,
-    shippingCountry:this.shippingAddress.country
-})
+  
+  // Create address objects
+  const billingAddress = {
+    street: this.billingAddress.street,
+    city: this.billingAddress.city,
+    state: this.billingAddress.state,
+    postalCode: this.billingAddress.postalCode,
+    country: this.billingAddress.country
+  };
+  
+  const shippingAddress = {
+    street: this.shippingAddress.street,
+    city: this.shippingAddress.city,
+    state: this.shippingAddress.state,
+    postalCode: this.shippingAddress.postalCode,
+    country: this.shippingAddress.country
+  };
+  
+  // Create order parameters object
+  const orderParams = {
+    productIds: productIds,
+    names: names,
+    skus: skus,
+    qtys: qtys,
+    prices: prices,
+    accountId: this.selectedAccountId,
+    contractId: this.selectedContractId,
+    billingAddress: billingAddress,
+    shippingAddress: shippingAddress
+  };
+  
+  createOrderFromCart(orderParams)
     .then(res=>{
       this.orderResult=res;
       this.dispatchEvent(new ShowToastEvent({
@@ -246,6 +272,84 @@ export default class CheckoutPage extends NavigationMixin(LightningElement){
       this.isLoading=false;
   });
 }
+  saveAsDraft(){
+  const cartArray=Array.from(this.cart || []);
+  if(!cartArray.length){
+    this.dispatchEvent(new ShowToastEvent({
+      title:'Empty cart',
+      message:'Add products first',
+      variant:'warning'
+  }));
+    return;
+}
+  if(!this.selectedAccountId){
+    this.dispatchEvent(new ShowToastEvent({
+      title:'Account required',
+      message:'Select an Account',
+      variant:'warning'
+  }));
+    return;
+}
+  this.isLoading=true;
+  const productIds=cartArray.map(item=> item.id);
+  const names=cartArray.map(item=> item.name);
+  const skus=cartArray.map(item=> item.sku);
+  const qtys=cartArray.map(item=> item.qty);
+  const prices=cartArray.map(item=> item.price);
+  
+  // Create address objects
+  const billingAddress = {
+    street: this.billingAddress.street,
+    city: this.billingAddress.city,
+    state: this.billingAddress.state,
+    postalCode: this.billingAddress.postalCode,
+    country: this.billingAddress.country
+  };
+  
+  const shippingAddress = {
+    street: this.shippingAddress.street,
+    city: this.shippingAddress.city,
+    state: this.shippingAddress.state,
+    postalCode: this.shippingAddress.postalCode,
+    country: this.shippingAddress.country
+  };
+  
+  // Create order parameters object
+  const orderParams = {
+    productIds: productIds,
+    names: names,
+    skus: skus,
+    qtys: qtys,
+    prices: prices,
+    accountId: this.selectedAccountId,
+    contractId: this.selectedContractId,
+    billingAddress: billingAddress,
+    shippingAddress: shippingAddress
+  };
+  
+  saveOrderAsDraft(orderParams)
+    .then(res=>{
+      this.dispatchEvent(new ShowToastEvent({
+        title:'Draft Saved',
+        message:`Draft order ${res.orderId} saved with ${res.lineItemCount} lines`,
+        variant:'success'
+    }));
+      // Do NOT clear cart after saving draft - keep items for future use
+      // sessionStorage.removeItem('cart');
+      // this.cart=[];
+  })
+    .catch(err=>{
+      console.error('Draft saving error:',JSON.stringify(err));
+      this.dispatchEvent(new ShowToastEvent({
+        title:'Draft Save Failed',
+        message:(err && err.body && err.body.message)?err.body.message :(err && err.message)?err.message :'Unknown error',
+        variant:'error'
+    }));
+  })
+    .finally(()=>{
+      this.isLoading=false;
+  });
+}
   getAccountDetails(accountId) {
     if (accountId) {
       getAccountInfo({accountId: accountId})
@@ -272,6 +376,15 @@ export default class CheckoutPage extends NavigationMixin(LightningElement){
         .catch(error => {
           console.error('Error fetching account details:', error);
         });
+      // Fetch contracts for the account
+      getContractsForAccount({accountId: accountId})
+        .then(result => {
+          this.contracts = result || [];
+        })
+        .catch(error => {
+          console.error('Error fetching contracts:', error);
+          this.contracts = [];
+        });
     }
   }
   handleBillingChange(evt){
@@ -280,6 +393,9 @@ export default class CheckoutPage extends NavigationMixin(LightningElement){
   handleShippingChange(evt){
     this.shippingAddress={...evt.detail};
 }
+  handleContractChange(evt) {
+    this.selectedContractId = evt.target.value;
+  }
 
   @wire(CurrentPageReference)
   wiredPageRef(pageRef) {
