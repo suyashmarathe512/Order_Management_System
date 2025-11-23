@@ -199,6 +199,24 @@
   padding: 0.5rem 0;
   border-bottom: 1px solid #f0f0f0;
 }
+.cart-item-right {
+  display: flex;
+  align-items: center;
+  min-width: 110px;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.cart-item-price {
+  font-weight: normal;
+  margin-right: 0.5rem;
+  white-space: nowrap;
+  max-width: 110px;
+  text-align: right;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .draft-orders-section h4 {
   margin-top: 1rem;
   margin-bottom: 0.5rem;

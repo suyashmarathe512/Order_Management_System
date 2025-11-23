@@ -380,27 +380,41 @@ public with sharing class ProductController{
                     Pricebook2Id = stdPbId,
                     EffectiveDate = Date.today()
                 );
-                Database.insert(targetOrder, AccessLevel.USER_MODE);
+                Database.SaveResult srOrder = Database.insert(targetOrder, false);
+                if (!srOrder.isSuccess()) {
+                    throw new AuraHandledException('Failed to create draft order: ' + srOrder.getErrors()[0].getMessage());
+                }
             } else {
                 targetOrder = draftOrders[0];
             }
+
+            PricebookEntry pbe = [SELECT Id FROM PricebookEntry WHERE Pricebook2Id = :targetOrder.Pricebook2Id AND Product2Id = :productId AND IsActive = true LIMIT 1];
 
             List<OrderItem> existingItems = [SELECT Id, Quantity FROM OrderItem WHERE OrderId = :targetOrder.Id AND Product2Id = :productId LIMIT 1];
             if (existingItems.isEmpty()) {
                 OrderItem newItem = new OrderItem(
                     OrderId = targetOrder.Id,
+                    PricebookEntryId = pbe.Id,
                     Product2Id = productId,
                     UnitPrice = price,
                     Quantity = quantity
                 );
-                Database.insert(newItem, AccessLevel.USER_MODE);
+                Database.SaveResult srItem = Database.insert(newItem, false);
+                if (!srItem.isSuccess()) {
+                    throw new AuraHandledException('Failed to add order item: ' + srItem.getErrors()[0].getMessage());
+                }
             } else {
                 OrderItem existingItem = existingItems[0];
                 existingItem.Quantity = (existingItem.Quantity == null ? 0 : existingItem.Quantity) + quantity;
-                Database.update(existingItem, AccessLevel.USER_MODE);
+                existingItem.PricebookEntryId = pbe.Id;
+                Database.SaveResult srUpdate = Database.update(existingItem, false);
+                if (!srUpdate.isSuccess()) {
+                    throw new AuraHandledException('Failed to update order item: ' + srUpdate.getErrors()[0].getMessage());
+                }
             }
         } catch (Exception e) {
             System.debug('addToOrder failed: ' + e.getMessage());
+            throw e;
         }
     }
     /*****************************************************************************

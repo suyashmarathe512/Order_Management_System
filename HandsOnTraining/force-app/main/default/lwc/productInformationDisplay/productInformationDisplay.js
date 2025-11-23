@@ -6,7 +6,8 @@ import{NavigationMixin}from 'lightning/navigation';
 import CartIcon from '@salesforce/resourceUrl/CartIcon';
 import getAccountName from '@salesforce/apex/ProductController.getAccountName';
 import getOrdersForAccount from '@salesforce/apex/ProductController.getOrdersForAccount';
-import deleteOrderItem from '@salesforce/apex/CheckOutController.deleteOrderItem';
+import deleteOrderItem from '@salesforce/apex/ProductController.removeOrderItem';
+import addToOrder from '@salesforce/apex/ProductController.addToOrder';
 import{CurrentPageReference}from 'lightning/navigation';
 
 export default class ProductInformationDisplay extends NavigationMixin(LightningElement){
@@ -36,6 +37,101 @@ export default class ProductInformationDisplay extends NavigationMixin(Lightning
   @track orderItems=[]; // flattened draft order items shown in the cart drawer
   @track orders=[]; // raw order wrappers
   skeletons=Array.from({length:6},(_,i) => ({id:`sk-${i}`}));
+
+  isSavingDraft = false;
+
+  connectedCallback(){
+    // restore cart from session if available
+    try{
+      const raw=sessionStorage.getItem('cart');
+      if (raw){
+        const parsed=JSON.parse(raw);
+        if (Array.isArray(parsed)){
+          this.cartItems=parsed;
+      }
+    }
+  }catch (e){
+      // ignore parse errors
+  }
+
+    this.loadProducts(true);
+    this.template?.addEventListener?.('pbeinfo',this.handlePbeInfo.bind(this));
+    this.template?.addEventListener?.('pbeerror',this.handlePbeError.bind(this));
+    this.template?.addEventListener?.('loading',this.handleChildLoading.bind(this));
+
+    window.addEventListener('beforeunload', this.handleBeforeUnload.bind(this));
+
+    this.dispatchEvent(new CustomEvent('close'));
+    // no programmatic navigation here so record context remains intact
+  }
+
+  handleBeforeUnload(event){
+    if(this.allCartItems && this.allCartItems.length > 0){
+      event.preventDefault();
+      event.returnValue = "You have items in your cart. Do you want to save them as draft before leaving?";
+      this.dispatchEvent(new ShowToastEvent({
+        title: 'Cart has items',
+        message: 'Save the items as draft?',
+        variant: 'warning',
+        mode: 'sticky'
+      }));
+    }
+  }
+
+  // Save current cart items to draft order
+  async saveCartToDraft(){
+    if(this.isSavingDraft){
+      this.dispatchEvent(new ShowToastEvent({
+        title: 'Please wait',
+        message: 'Cart is already being saved as draft.',
+        variant: 'info'
+      }));
+      return;
+    }
+    if(!this.allCartItems || this.allCartItems.length === 0){
+      this.dispatchEvent(new ShowToastEvent({
+        title: 'Empty Cart',
+        message: 'There are no items in the cart to save as draft.',
+        variant: 'info'
+      }));
+      return;
+    }
+    this.isSavingDraft = true;
+    try{
+      // Filter only live items since draft is already saved
+      const liveItemsToSave = (this.cartItems || []).filter(item => item && item.id && item.sku);
+      if(liveItemsToSave.length === 0){
+          this.dispatchEvent(new ShowToastEvent({
+              title: 'Info',
+              message: 'Draft order items already present, no new items to save.',
+              variant: 'info'
+          }));
+      } else {
+        for(let item of liveItemsToSave){
+          await addToOrder({
+            accountId: this.recordId,
+            productId: item.id,
+            price: item.price,
+            quantity: item.qty || 1
+          });
+        }
+        this.dispatchEvent(new ShowToastEvent({
+          title: 'Success',
+          message: 'Cart items have been saved as draft order.',
+          variant: 'success'
+        }));
+      }
+    }catch(error){
+      const msg = (error && error.body && error.body.message) ? error.body.message : 'Failed to save cart as draft.';
+      this.dispatchEvent(new ShowToastEvent({
+        title: 'Error',
+        message: msg,
+        variant: 'error'
+      }));
+    }finally{
+      this.isSavingDraft = false;
+    }
+  }
 
   // return only valid cart items (used by checkout/session)
   @api
@@ -172,59 +268,57 @@ export default class ProductInformationDisplay extends NavigationMixin(Lightning
   // -----------------------
   @wire(getOrdersForAccount,{accountId:'$recordId'})
   wiredOrders({error,data}){
-    if (data){
+    if(data){
       try{
         const filtered=(data || []).filter(w => w && w.order && w.order.Status === 'Draft');
         this.orders=filtered;
-        const items=[];
-        filtered.forEach(wrapper =>{
-          if (wrapper.orderItems && Array.isArray(wrapper.orderItems)){
-            wrapper.orderItems.forEach(oi =>{
-              items.push({
-                id:oi.Id,
-                orderId:wrapper.order ? wrapper.order.Id :null,
-                orderName:wrapper.order ? wrapper.order.Name :null,
-                productId:oi.Product2Id,
-                productName:oi.Product2 ? oi.Product2.Name :null,
-                productCode:oi.Product2 ? oi.Product2.ProductCode :null,
-                description:oi.Product2 ? oi.Product2.Description :null,
-                family:oi.Product2 ? oi.Product2.Family :null,
-                isActive:oi.Product2 ? oi.Product2.IsActive :null,
-                uom:oi.Product2 ? oi.Product2.QuantityUnitOfMeasure :null,
-                sku:oi.Product2 ? oi.Product2.StockKeepingUnit :null,
-                productImage:oi.Product2 ? oi.Product2.ProductImage__c :null,
-                quantity:oi.Quantity,
-                unitPrice:oi.UnitPrice,
-                totalPrice:oi.TotalPrice,
-                formattedUnitPrice:this.formatCurrency(oi.UnitPrice)
-            });
-          });
-        }
-      });
-        this.orderItems=items;
-    }catch (e){
-        console.error('wiredOrders mapping error',e);
+      }catch(e){
+        console.error('wiredOrders mapping error', e);
         this.orders=[];
-        this.orderItems=[];
-    }
-  }else if (error){
+      }
+    }else if(error){
       console.error('Error loading orders for account',error);
       this.orders=[];
-      this.orderItems=[];
-  }else{
+    }else{
       this.orders=[];
-      this.orderItems=[];
+    }
   }
-}
 
   // -----------------------
   // small getters
   // -----------------------
+  get allCartItems(){
+    if (!this.orders) return this.cartItems || [];
+    const draftItems = this.orders.flatMap(wrapper => {
+      if (!wrapper.orderItems) return [];
+      return wrapper.orderItems.map(oi => ({
+        id: oi.Id,
+        name: oi.Product2 ? oi.Product2.Name : '',
+        qty: oi.Quantity,
+        productCode: oi.Product2 ? oi.Product2.ProductCode : '',
+        formattedPrice: this.formatCurrency(oi.UnitPrice),
+        source: 'draft'
+      }));
+    });
+    const liveItems = (this.cartItems || []).map(item => ({
+      ...item,
+      source: 'live'
+    }));
+    // Merge live and draft, avoid duplicates by id (live items take precedence)
+    const merged = [...liveItems];
+    draftItems.forEach(draft => {
+      if (!liveItems.some(live => live.id === draft.id)) {
+        merged.push(draft);
+      }
+    });
+    return merged;
+  }
   get cartCount(){
-    return this.cartItems.length;
+    if (!this.allCartItems) return 0;
+    return this.allCartItems.reduce((total, item) => total + (item.qty || 1), 0);
 }
   get hasCartItems(){
-    return this.cartItems.length > 0;
+    return (this.allCartItems || []).length > 0;
 }
   get isCheckoutDisabled(){
     return this.cartCount === 0;
@@ -349,31 +443,45 @@ export default class ProductInformationDisplay extends NavigationMixin(Lightning
   // -----------------------
   // cart handlers (UI-only; no DML)
   // -----------------------
+  @track isAddingToCart = false;
+
   async handleAddToCart(e){
     const prod=e.detail;
     if (!prod || !prod.id){
       this.dispatchEvent(new ShowToastEvent({title:'Invalid item',message:'Cannot add item to cart',variant:'error'}));
       return;
-  }
+    }
+    if(this.isAddingToCart){
+      this.dispatchEvent(new ShowToastEvent({title:'Please wait',message:'Item is being added to cart, please wait...',variant:'info'}));
+      return;
+    }
     // if already present,do not change quantity
     const existing=this.cartItems.find(i => i.id === prod.id);
     if (existing){
-      this.dispatchEvent(new ShowToastEvent({title:'Already in cart',message:`${prod.name}is already in the cart.`,variant:'info'}));
+      this.dispatchEvent(new ShowToastEvent({title:'Already in cart',message:`${prod.name} is already in the cart.`,variant:'info'}));
       return;
-  }
+    }
 
-    const cartItem ={
-      id:prod.id,
-      name:prod.name,
-      sku:prod.sku || prod.productCode || null,
-      price:prod.price,
-      qty:1,
-      formattedPrice:this.formatCurrency(prod.price)
-  };
-    this.cartItems=[...this.cartItems,cartItem];
-    this.saveCartToSession();
-    this.dispatchEvent(new ShowToastEvent({title:'Added to cart',message:prod.name || 'Product added',variant:'success'}));
-}
+    this.isAddingToCart = true;
+    try {
+      await addToOrder({accountId: this.recordId, productId: prod.id, price: prod.price, quantity: 1});
+      const cartItem ={
+        id:prod.id,
+        name:prod.name,
+        sku:prod.sku || prod.productCode || null,
+        price:prod.price,
+        qty:1,
+        formattedPrice:this.formatCurrency(prod.price)
+      };
+      this.cartItems=[...this.cartItems,cartItem];
+      this.saveCartToSession();
+      this.dispatchEvent(new ShowToastEvent({title:'Added to cart',message:prod.name || 'Product added',variant:'success'}));
+    } catch (error) {
+      this.dispatchEvent(new ShowToastEvent({title:'Error',message:'Failed to add item to cart.',variant:'error'}));
+    } finally {
+      this.isAddingToCart = false;
+    }
+  }
 
   handleViewDetails(e){
     this.modalProduct=e.detail;
@@ -530,82 +638,26 @@ export default class ProductInformationDisplay extends NavigationMixin(Lightning
     this.cartItems=this.cartItems.filter(i => i.id !== idToRemove);
     this.saveCartToSession();
     this.dispatchEvent(new ShowToastEvent({title:'Removed',message:'Item removed from cart',variant:'success'}));
-}
-  /* -----------------------
-     Draft order handler (UI-only)
-     - addDraftItemToCart:add to client cart and remove the draft row from UI immediately
-     - no DML here; checkout will reconcile
-     ----------------------- */
-  async addDraftItemToCart(evt){
-    const itemIndex=evt.currentTarget.dataset.index;
-    const draftItem=this.orderItems[itemIndex];
-    if (!draftItem){
-      this.dispatchEvent(new ShowToastEvent({title:'Invalid item',message:'Cannot add item to cart',variant:'error'}));
-      return;
   }
-
-    // If already in cart,do not change quantity — just inform
-    const exists=this.cartItems.find(ci => ci.id === draftItem.productId);
-    if (exists){
-      this.dispatchEvent(new ShowToastEvent({title:'Already in cart',message:`${draftItem.productName}is already in the cart.`,variant:'info'}));
-      return;
-  }
-
-    // Add to client cart
-    const cartItem ={
-      id:draftItem.productId,
-      name:draftItem.productName,
-      sku:draftItem.sku || null,
-      price:draftItem.unitPrice,
-      qty:draftItem.quantity || 1,
-      formattedPrice:this.formatCurrency(draftItem.unitPrice)
-  };
-    this.cartItems=[...this.cartItems,cartItem];
-    this.saveCartToSession();
-
-    // Immediately remove the draft row from the UI (client-only)
-    this.orderItems=(this.orderItems || []).filter(oi => oi && oi.id !== draftItem.id);
-
-    this.dispatchEvent(new ShowToastEvent({title:'Added to cart',message:draftItem.productName || 'Product added',variant:'success'}));
-}
-
-  // removeDraftItemFromCart:delete the OrderItem from the org and add it back to cart
-  async removeDraftItemFromCart(evt){
-    const itemIndex = evt.currentTarget.dataset.index;
-    const draftItem = this.orderItems[itemIndex];
-    
-    if (!draftItem) {
-      this.dispatchEvent(new ShowToastEvent({
-        title:'Invalid item',
-        message:'Cannot remove item from cart',
-        variant:'error'
-      }));
-      return;
-    }
-
-    try {
-      // Call the Apex method to delete the OrderItem from the org
-      await deleteOrderItem({ orderItemId: draftItem.id });
-      this.saveCartToSession();
-
-      // Remove the draft row from the UI (client-only)
-      this.orderItems = (this.orderItems || []).filter(oi => oi && oi.id !== draftItem.id);
-
-      this.dispatchEvent(new ShowToastEvent({
-        title:'Removed and Added to Cart',
-        message: `${draftItem.productName} was removed from draft order and added to cart`,
-        variant:'success'
-      }));
-    } catch (error) {
-      console.error('Error removing draft item:', error);
-      this.dispatchEvent(new ShowToastEvent({
-        title:'Error',
-        message: error.body?.message || error.message || 'Failed to remove item from draft order',
-        variant:'error'
-      }));
+  async removeItem(evt){
+    const idToRemove=evt.currentTarget.dataset.id;
+    const source=evt.currentTarget.dataset.source;
+    if (!idToRemove) return;
+    if(source === 'draft'){
+      const confirmed=confirm('Are you sure you want to remove this draft item permanently?');
+      if(!confirmed) return;
+      try{
+        await deleteOrderItem({orderItemId:idToRemove});
+        this.dispatchEvent(new ShowToastEvent({title:'Draft item removed',message:'Draft item removed permanently',variant:'success'}));
+        // Refresh to reload updated draft orders
+        this.wiredOrders();
+      }catch(error){
+        this.dispatchEvent(new ShowToastEvent({title:'Deleted',message:'Please Reload',variant:'info'}));
+      }
+    }else{
+      this.removeFromCart(evt);
     }
   }
-
   // -----------------------
   // checkout / navigation
   // -----------------------
@@ -696,7 +748,6 @@ export default class ProductInformationDisplay extends NavigationMixin(Lightning
       return `₹${value}`;
   }
 }
-
   async getAccountName(){
     if (this.recordId){
       try{

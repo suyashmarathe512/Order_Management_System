@@ -185,56 +185,40 @@
       </div>
     </section>
     <div class="modal-backdrop" onclick={closeModal}></div>
-  </template>
-
+  </template> 
   <template if:true={showCart}>
     <section class="cart-drawer" role="dialog" aria-modal="true" aria-label="Cart">
       <div class="cart-header">
         <h3>Cart ({cartCount})</h3>
       </div>
       <div class="cart-body">
-        <template if:true={cartItems.length}>
-          <template for:each={cartItems} for:item="it">
-            <div key={it.id} class="cart-item">
+        <template if:true={allCartItems.length}>
+          <template for:each={allCartItems} for:item="item">
+            <div key={item.id} class="cart-item">
               <div class="cart-item-left">
-                <div class="cart-item-name">{it.name}</div>
+                <div class="cart-item-name">{item.name}</div>
+                <template if:true={item.qty}>
+                  <div class="cart-item-quantity">Qty: {item.qty}</div>
+                </template>
+                <template if:true={item.productCode}>
+                  <div class="cart-item-code">Code: {item.productCode}</div>
+                </template>
               </div>
               <div class="cart-item-right">
-                <div class="cart-item-price">{it.formattedPrice}</div>
-                <lightning-button-icon icon-name="utility:delete" alternative-text="Remove" onclick={removeFromCart} data-id={it.id}></lightning-button-icon>
+                <div class="cart-item-price">{item.formattedPrice}</div>
+                <lightning-button-icon icon-name="utility:delete" alternative-text="Remove" onclick={removeItem} data-id={item.id} data-source={item.source}></lightning-button-icon>
               </div>
             </div>
           </template>
         </template>
 
-        <template if:true={orderItems.length}>
-          <div class="draft-orders-section">
-            <h4>Draft Order Items</h4>
-            <template for:each={orderItems} for:item="item" for:index="index">
-              <div key={item.id} class="cart-item">
-                <div class="cart-item-left">
-                  <div class="cart-item-name">{item.productName}</div>
-                  <div class="cart-item-quantity">Qty: {item.quantity}</div>
-                  <template if:true={item.productCode}>
-                    <div class="cart-item-code">Code: {item.productCode}</div>
-                  </template>
-                </div>
-                <div class="cart-item-right">
-                  <div class="cart-item-price">{item.formattedUnitPrice}</div>
-                  <lightning-button-icon icon-name="utility:add" alternative-text="Add to Cart" onclick={addDraftItemToCart} data-index={index}></lightning-button-icon>
-                  <lightning-button-icon icon-name="utility:delete" alternative-text="Remove from Order" onclick={removeDraftItemFromCart} data-index={index}></lightning-button-icon>
-                </div>
-              </div>
-            </template>
-          </div>
-        </template>
-
-        <template if:false={cartItems.length}>
+        <template if:false={allCartItems.length}>
           <div class="empty-cart">Your cart is empty.</div>
         </template>
       </div>
       <div class="cart-footer">
         <lightning-button variant="neutral" label="Close" onclick={closeCart}></lightning-button>
+        <lightning-button variant="brand" label="Save Cart to Draft" onclick={saveCartToDraft} disabled={isCheckoutDisabled}></lightning-button>
         <lightning-button variant="brand" label="Checkout" onclick={onCheckout} disabled={isCheckoutDisabled}></lightning-button>
       </div>
     </section>
