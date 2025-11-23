@@ -11,7 +11,6 @@ import addToOrder from '@salesforce/apex/ProductController.addToOrder';
 import{CurrentPageReference}from 'lightning/navigation';
 
 export default class ProductInformationDisplay extends NavigationMixin(LightningElement){
-  // -----------------------
   // reactive state / inputs
   // -----------------------
   @api recordId;
@@ -41,7 +40,7 @@ export default class ProductInformationDisplay extends NavigationMixin(Lightning
   isSavingDraft = false;
 
   connectedCallback(){
-    // restore cart from session if available
+    // Session se cart ko wapas la rahe hain — user ne page band kiya ho toh bhi list na ude
     try{
       const raw=sessionStorage.getItem('cart');
       if (raw){
@@ -51,7 +50,7 @@ export default class ProductInformationDisplay extends NavigationMixin(Lightning
       }
     }
   }catch (e){
-      // ignore parse errors
+      // Parsing fail ho gaya toh tension nahi — silently skip kar denge
   }
 
     this.loadProducts(true);
@@ -62,7 +61,7 @@ export default class ProductInformationDisplay extends NavigationMixin(Lightning
     window.addEventListener('beforeunload', this.handleBeforeUnload.bind(this));
 
     this.dispatchEvent(new CustomEvent('close'));
-    // no programmatic navigation here so record context remains intact
+    // Yaha navigate nahi kar rahe — record context ko disturb nahi karna
   }
 
   handleBeforeUnload(event){
@@ -78,7 +77,7 @@ export default class ProductInformationDisplay extends NavigationMixin(Lightning
     }
   }
 
-  // Save current cart items to draft order
+  // Current cart ko Draft order me save karte hain — taaki banda page se nikle toh bhi data safe rahe
   async saveCartToDraft(){
     if(this.isSavingDraft){
       this.dispatchEvent(new ShowToastEvent({
@@ -98,7 +97,7 @@ export default class ProductInformationDisplay extends NavigationMixin(Lightning
     }
     this.isSavingDraft = true;
     try{
-      // Filter only live items since draft is already saved
+      // Sirf live items save karenge — draft wale already server pe padhe hain
       const liveItemsToSave = (this.cartItems || []).filter(item => item && item.id && item.sku);
       if(liveItemsToSave.length === 0){
           this.dispatchEvent(new ShowToastEvent({
@@ -133,7 +132,7 @@ export default class ProductInformationDisplay extends NavigationMixin(Lightning
     }
   }
 
-  // return only valid cart items (used by checkout/session)
+  // Sirf valid cart items return karo (checkout/session ke liye) — half-baked data se bachna hai
   @api
   get selectedCartItems(){
     return (this.cartItems || []).filter(item => item && item.id && item.sku);
@@ -143,7 +142,7 @@ export default class ProductInformationDisplay extends NavigationMixin(Lightning
   // lifecycle
   // -----------------------
   connectedCallback(){
-    // restore cart from session if available
+    // Session se cart ko wapas la rahe hain — user ne page band kiya ho toh bhi list na ude
     try{
       const raw=sessionStorage.getItem('cart');
       if (raw){
@@ -153,7 +152,7 @@ export default class ProductInformationDisplay extends NavigationMixin(Lightning
       }
     }
   }catch (e){
-      // ignore parse errors
+      // Parsing fail ho gaya toh koi baat nahi — quietly ignore
   }
 
     this.loadProducts(true);
@@ -161,11 +160,11 @@ export default class ProductInformationDisplay extends NavigationMixin(Lightning
     this.template?.addEventListener?.('pbeerror',this.handlePbeError.bind(this));
     this.template?.addEventListener?.('loading',this.handleChildLoading.bind(this));
     this.dispatchEvent(new CustomEvent('close'));
-    // no programmatic navigation here so record context remains intact
+    // Navigation nahi karna — current record ka context maintain rehna chahiye
 }
 
   // -----------------------
-  // product loading (unchanged logic)
+  // Product loading — same logic, bas safai se handle kar rahe
   // -----------------------
   async loadProducts(reset=true){
     try{
@@ -187,7 +186,7 @@ export default class ProductInformationDisplay extends NavigationMixin(Lightning
     });
       if (resp && resp.records){
         this.totalSize=resp.totalSize || 0;
-        // Process product records to select the best price from PBEs or fallback to base price
+        // PBE me se best price pick karte hain — warna base price pe fallback
         const mapped=resp.records.map(r =>{
           const pbes=Array.isArray(r.pbes) ? r.pbes :[];
           const endpointPbes=pbes.filter(p => p && p.isFetchedFromOrg === true);
@@ -244,7 +243,7 @@ export default class ProductInformationDisplay extends NavigationMixin(Lightning
   }
 }
 
-  // read recordId from page state if passed via URL/button
+  // URL/button se recordId aaya ho toh page state se pakad lo — handy when deep-linking
   @wire(CurrentPageReference)
   wiredPageRef(pageRef){
     if (pageRef && pageRef.state){
@@ -264,7 +263,7 @@ export default class ProductInformationDisplay extends NavigationMixin(Lightning
 }
 
   // -----------------------
-  // orders wire — always keep draft order items in sync
+  // Orders wire — Draft order items ko hamesha sync me rakho
   // -----------------------
   @wire(getOrdersForAccount,{accountId:'$recordId'})
   wiredOrders({error,data}){
@@ -273,11 +272,11 @@ export default class ProductInformationDisplay extends NavigationMixin(Lightning
         const filtered=(data || []).filter(w => w && w.order && w.order.Status === 'Draft');
         this.orders=filtered;
       }catch(e){
-        console.error('wiredOrders mapping error', e);
+        console.error('wiredOrders mapping error', e); // Kabhi-kabhi payload odd hota hai — guard kar diya
         this.orders=[];
       }
     }else if(error){
-      console.error('Error loading orders for account',error);
+      console.error('Error loading orders for account',error); // Wire error? Safe default lagao
       this.orders=[];
     }else{
       this.orders=[];
@@ -285,7 +284,7 @@ export default class ProductInformationDisplay extends NavigationMixin(Lightning
   }
 
   // -----------------------
-  // small getters
+  // Chhote getters — UI ko saaf data dene ke liye
   // -----------------------
   get allCartItems(){
     if (!this.orders) return this.cartItems || [];
@@ -304,7 +303,7 @@ export default class ProductInformationDisplay extends NavigationMixin(Lightning
       ...item,
       source: 'live'
     }));
-    // Merge live and draft, avoid duplicates by id (live items take precedence)
+    // Live + Draft merge kar rahe — id se duplicates mat lao (live ko priority)
     const merged = [...liveItems];
     draftItems.forEach(draft => {
       if (!liveItems.some(live => live.id === draft.id)) {
@@ -337,18 +336,18 @@ export default class ProductInformationDisplay extends NavigationMixin(Lightning
 }
 
   // -----------------------
-  // persistence helper (session)
+  // Session persistence helper — browser storage me thoda state hold karke rakhte hain
   // -----------------------
   saveCartToSession(){
     try{
       sessionStorage.setItem('cart',JSON.stringify(this.cartItems || []));
   }catch (e){
-      console.error('saveCartToSession failed',e);
+      console.error('saveCartToSession failed',e); // Local storage kabhi block ho sakta — error log karke aage badh jao
   }
 }
 
   // -----------------------
-  // product loading (unchanged logic)
+  // Product loading — idempotent aur paginated
   // -----------------------
   async loadProducts(reset=true){
     try{
@@ -432,7 +431,7 @@ export default class ProductInformationDisplay extends NavigationMixin(Lightning
 }
 
   onGridScroll(e){
-    // Handle infinite scrolling for product grid
+    // Infinite scroll ka jugaad — neeche pahunchte hi next page lao
     const grid=e.currentTarget;
     if (grid.scrollTop + grid.clientHeight >= grid.scrollHeight - 200 && !this.isLoadingMore && this.products.length < this.totalSize){
       this.pageNumber += 1;
@@ -441,7 +440,7 @@ export default class ProductInformationDisplay extends NavigationMixin(Lightning
 }
 
   // -----------------------
-  // cart handlers (UI-only; no DML)
+  // Cart handlers — UI-only, yaha server-side DML nahi chalega
   // -----------------------
   @track isAddingToCart = false;
 
@@ -455,7 +454,7 @@ export default class ProductInformationDisplay extends NavigationMixin(Lightning
       this.dispatchEvent(new ShowToastEvent({title:'Please wait',message:'Item is being added to cart, please wait...',variant:'info'}));
       return;
     }
-    // if already present,do not change quantity
+    // Agar already cart me hai toh qty chhedna nahi — UX simple rakho
     const existing=this.cartItems.find(i => i.id === prod.id);
     if (existing){
       this.dispatchEvent(new ShowToastEvent({title:'Already in cart',message:`${prod.name} is already in the cart.`,variant:'info'}));
@@ -494,7 +493,7 @@ export default class ProductInformationDisplay extends NavigationMixin(Lightning
 }
 
   handlePbeInfo(evt){
-    // Process incoming PBE data to normalize and format it for display
+    // PBE data ko normalize karke readable format me convert kar rahe — UI ko clean rows milen
     const{productId,data}= evt.detail ||{};
     this.pbeForProductId=productId;
     let rows=[];
@@ -547,6 +546,7 @@ export default class ProductInformationDisplay extends NavigationMixin(Lightning
 }
 
   handlePbeError(evt){
+    // Agar PBE fetch me kuch gadbad — user ko simple error dikhado
     const{error}= evt.detail ||{};
     this.dispatchEvent(new ShowToastEvent({
       title:'Error',
@@ -556,6 +556,7 @@ export default class ProductInformationDisplay extends NavigationMixin(Lightning
 }
 
   handleChildLoading(evt){
+    // Child component se loading state bubble karwa rahe — ek hi spinner ka source
     const{isLoading}= evt.detail ||{};
     this.isLoading=!!isLoading;
 }
@@ -570,7 +571,7 @@ export default class ProductInformationDisplay extends NavigationMixin(Lightning
     this.modalProduct ={};
 }
 
-  // PBE add to cart (UI-only)
+  // PBE modal se direct cart me daalna — sirf UI level par
   pbeAddToCart(){
     if (!this.modalProduct || !this.modalProduct.id){
       console.error('Cannot add to cart:Invalid product data');
@@ -599,7 +600,7 @@ export default class ProductInformationDisplay extends NavigationMixin(Lightning
   }));
 }
 
-  // modal add to cart (UI-only)
+  // Generic modal add-to-cart — UI-only flow
   modalAddToCart(){
     const existing=this.cartItems.find(i => i.id === this.modalProduct.id);
     if (existing){
@@ -631,7 +632,7 @@ export default class ProductInformationDisplay extends NavigationMixin(Lightning
   closeCart(){
     this.showCart=false;
 }
-  // Remove from client cart (UI-only)
+  // Client cart se item hatao — sirf UI side pe
   async removeFromCart(evt){
     const idToRemove=evt.currentTarget.dataset.id;
     if (!idToRemove) return;
@@ -649,7 +650,7 @@ export default class ProductInformationDisplay extends NavigationMixin(Lightning
       try{
         await deleteOrderItem({orderItemId:idToRemove});
         this.dispatchEvent(new ShowToastEvent({title:'Draft item removed',message:'Draft item removed permanently',variant:'success'}));
-        // Refresh to reload updated draft orders
+        // Draft remove ho gaya — ab orders wire ko refresh ka signal
         this.wiredOrders();
       }catch(error){
         this.dispatchEvent(new ShowToastEvent({title:'Deleted',message:'Please Reload',variant:'info'}));
@@ -659,13 +660,13 @@ export default class ProductInformationDisplay extends NavigationMixin(Lightning
     }
   }
   // -----------------------
-  // checkout / navigation
+  // Checkout / Navigation — clean hand-off to next screen
   // -----------------------
   onCheckout(){
     this.dispatchEvent(new ShowToastEvent({title:'Checkout',message:`Proceeding with ${this.cartCount}items`,variant:'success'}));
     this.closeCart();
     const validatedCart=(this.cartItems || []).filter(item => item && item.id && item.sku);
-    // Add accountId and accountName to each cart item before storing in session storage
+    // Session me daalne se pehle har item ko account context de dete — baad me kaam aayega
     const cartWithAccountId = validatedCart.map(item => ({
       ...item,
       accountId: this.recordId
@@ -673,7 +674,7 @@ export default class ProductInformationDisplay extends NavigationMixin(Lightning
     try{
       sessionStorage.setItem('cart',JSON.stringify(cartWithAccountId));
   }catch (e){
-      console.error('sessionStorage set failed',e);
+      console.error('sessionStorage set failed',e); // Kuch browsers me storage tight ho sakti — log karke nikal lo
   }
     this.dispatchEvent(new CustomEvent('cartupdate',{detail:{cart:cartWithAccountId}}));
     this[NavigationMixin.Navigate]({
@@ -688,7 +689,7 @@ export default class ProductInformationDisplay extends NavigationMixin(Lightning
   });
 }
   // -----------------------
-  // filters,utils (unchanged)
+  // Filters + utils — yaha UX polish baithti hai
   // -----------------------
   async openFilterPanel(){
     try{
@@ -703,7 +704,7 @@ export default class ProductInformationDisplay extends NavigationMixin(Lightning
         title:'Error loading families',
         message:err?.body?.message || err?.message || 'Unknown error',
         variant:'error'
-    }));
+    })); // Family fetch fail — user ko context de do
   }
 }
   closeFilterPanel(){
@@ -726,7 +727,7 @@ export default class ProductInformationDisplay extends NavigationMixin(Lightning
     return this.selectedFamilies.includes(family);
 }
   applyFilters(){
-    // Reload products with the selected filters applied
+    // Selected filters apply karke product list refresh kar lo
     this.loadProducts(true);
     this.closeFilterPanel();
 }
@@ -741,20 +742,22 @@ export default class ProductInformationDisplay extends NavigationMixin(Lightning
 }
 
   formatCurrency(value){
+    // Price ko human-friendly INR me dikhate — fallback bhi rakha
     if (value === null || value === undefined) return '—';
     try{
       return new Intl.NumberFormat('en-IN',{style:'currency',currency:'INR',maximumFractionDigits:0}).format(Number(value));
   }catch (e){
-      return `₹${value}`;
+      return `₹${value}`; // Worst-case — raw value ko rupee prefix ke sath dikha do
   }
 }
   async getAccountName(){
+    // Account ka naam lazily fetch karte — UI me friendly text ke liye
     if (this.recordId){
       try{
         const result=await getAccountName({recordId:this.recordId});
         return result;
     }catch (error){
-        console.error('Error fetching account name:',error);
+        console.error('Error fetching account name:',error); // Fetch fail hua toh null dekar gracefully degrade karo
         return null;
     }
   }
