@@ -91,14 +91,14 @@
                   </div>
                 </div>
               </div>
-              <div class="slds-col slds-size_1-of-1">
+              <div class="slds-col slds-size_1-of-3">
                 <div class="slds-form-element">
                   <label class="slds-form-element__label">Select Contract</label>
                   <div class="slds-form-element__control">
                     <select class="slds-select" value={selectedContractId} onchange={handleContractChange}>
                       <option value="">-- Select a Contract --</option>
                       <template for:each={contracts} for:item="contract">
-                        <option key={contract.Id} value={contract.Id}>{contract.Contract_Name__c} ({contract.ContractNumber})</option>
+                        <option key={contract.Id} value={contract.Id}>{contract.Contract_Name__c}({contract.ContractNumber})</option>
                       </template>
                     </select>
                   </div>
