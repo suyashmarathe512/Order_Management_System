@@ -1,29 +1,43 @@
 <template>
   <header class="pid-header">
-    <div class="pid-header-inner slds-grid slds-grid_align-spread slds-grid_vertical-align-center">
-      <div class="pid-left slds-col">
-        <div class="pid-brand slds-grid slds-grid_vertical-align-center">
-          <img src={cartIconUrl} alt="Cart" class="cart-icon" />
-          <div>
-            <span class="pid-title">Shopping Portal</span>
-            <template if:true={accountName}>
-              <p class="account-name"><strong>Account:</strong> {accountName}</p>
-            </template>
+    <div class="pid-header-inner">
+      <!-- Top row: Title and Cart -->
+      <div class="pid-header-top">
+        <div class="pid-left">
+          <div class="pid-brand">
+            <img src={cartIconUrl} alt="Cart" class="cart-icon" />
+            <div>
+              <span class="pid-title">Shopping Portal</span>
+              <template if:true={accountName}>
+                <p class="account-name"><strong>Account:</strong> {accountName}</p>
+              </template>
+            </div>
+          </div>
+        </div>
+        <div class="pid-right">
+          <div class="pid-actions">
+            <button class="slds-button slds-button_icon slds-button_icon-border cart-btn" onclick={openCart} title="Cart" aria-label="Open cart">
+              Cart
+              <template if:true={hasCartItems}>
+                <span class="cart-badge">{cartCount}</span>
+              </template>
+            </button>
           </div>
         </div>
       </div>
-      <div class="pid-center slds-col slds-text-align_center">
-        <lightning-input
-          class="pid-search"
-          type="search"
-          placeholder="Search products or SKU"
-          value={searchKey}
-          onchange={onSearchChange}
-          debounce="300">
-        </lightning-input>
-      </div>
-      <div class="pid-right slds-col slds-text-align_right">
-        <div class="pid-actions">
+      
+      <!-- Bottom row: Search and Filter -->
+      <div class="pid-header-bottom">
+        <div class="pid-search-container">
+            <lightning-input
+              class="pid-search"
+              type="search"
+              placeholder="Search products or SKU"
+              value={searchKey}
+              onchange={onSearchChange}
+              onkeypress={handleSearchKeyPress}>
+            </lightning-input>
+          </div>
           <div class="filter-container">
             <lightning-button-icon
               class={filterBtnClass}
@@ -35,13 +49,6 @@
             <template if:true={hasActiveFilters}>
               <div class="filter-indicator"></div>
             </template>
-          </div>
-          <button class="cart-btn" onclick={openCart} title="Cart" aria-label="Open cart">
-            Cart
-            <template if:true={hasCartItems}>
-              <span class="cart-badge">{cartCount}</span>
-            </template>
-          </button>
         </div>
       </div>
     </div>
