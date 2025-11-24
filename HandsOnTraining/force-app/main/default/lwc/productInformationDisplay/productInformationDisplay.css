@@ -61,8 +61,34 @@
   padding: 18px;
   box-sizing: border-box;
   max-height: calc(100vh - 220px);
-  overflow-y: auto;
+  overflow-y: auto; /* allow scrolling so lazy loading works */
+  scrollbar-gutter: stable both-edges; /* avoid layout shift when scrollbar appears */
   scroll-behavior: smooth;
+}
+/* visually hide scrollbar while preserving scroll functionality */
+.product-grid::-webkit-scrollbar {
+  width: 0px;
+  height: 0px;
+}
+.product-grid {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;     /* Firefox */
+}
+/* hide scrollbar cross-browser just in case parent causes it */
+:host {
+  /* Keep host non-scrolling; the grid scrolls instead so lazy loading triggers */
+  overflow: hidden;
+  overscroll-behavior: contain; /* contain overscroll effects without blocking scroll inside grid */
+}
+/* Hide scrollbar*/
+/* Keep host scrollbar hidden only */
+:host::-webkit-scrollbar {
+  display: none;
+}
+/* Hide scrollbar for IE, Edge, and Firefox */
+:host {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;     /* Firefox */
 }
 /* when loading */
 .product-skeleton-card{

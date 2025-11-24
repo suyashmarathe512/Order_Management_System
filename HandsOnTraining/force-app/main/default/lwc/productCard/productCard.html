@@ -14,32 +14,38 @@
         <p class="sku"><strong>SKU:</strong> {product.sku}</p>
       </div>
     </div>
-    <div>
-      <p>--------------------------------------------------------</p>
-    </div>
     <div class="card-body">
-      <p  title={product.description}>{product.description}</p>
+      <p title={product.description}>{product.description}</p>
     </div>
-    <div class="card-footer">
-      <div class="action-block">
-        <lightning-button class="btn-view" variant="neutral" label="View details" onclick={onView}></lightning-button>
-        <div class="cart-actions">
-          <lightning-button-icon
-            icon-name="utility:add"
-            alternative-text="Add to Cart"
-            title="Add to Cart"
-            onclick={handleAdd}
-            class="slds-m-left_small"
-          ></lightning-button-icon>
-          <lightning-button-icon
-            icon-name="utility:dash"
-            alternative-text="Remove from Cart"
-            title="Remove from Cart"
-            onclick={handleRemove}
-            class="slds-m-left_x-small"
-          ></lightning-button-icon>
-        </div>
-      </div>
+    <div class="price-row">
+      <template if:true={hasPrice}>
+        <span class="price" title="Unit Price">{formattedPrice}</span>
+      </template>
+      <template if:false={hasPrice}>
+        <span class="price price--loading" title="Fetching price...">Fetching price…</span>
+      </template>
+    </div>
+    <div class="action-block">
+      <lightning-button 
+        label="Add to Cart"
+        title="Add to Cart"
+        onclick={handleAdd}
+        variant="brand"
+      ></lightning-button>
+      <lightning-button 
+        label="View Details"
+        title="View Details"
+        onclick={handleRemove}
+        variant="outline-brand"
+      ></lightning-button>
     </div>
   </article>
+  
+  <!-- Modal for product details -->
+  <template if:true={showModal}>
+    <c-product-detail-modal 
+      product={product}
+      onclosemodal={handleCloseModal}>
+    </c-product-detail-modal>
+  </template>
 </template>

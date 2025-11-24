@@ -1,8 +1,15 @@
 import{LightningElement,api,track}from 'lwc';
-import caller from '@salesforce/apex/ProductController.caller';
+import caller from '@salesforce/apex/ProductCardController.caller';
 export default class ProductCard extends LightningElement{
   @track _product={};
+  @track showModal = false;
   @api recordId;
+
+  connectedCallback() {
+    // Fetch price silently on init; no modal or view logic here.
+    this.fetchUnitPrice();
+  }
+
   @api
   get product(){
     return this._product;
@@ -19,6 +26,8 @@ export default class ProductCard extends LightningElement{
         isFetchedFromOrg: value.isFetchedFromOrg=== true||value.isPriceFromOrg=== true||false,
         ...value
     };
+      // when product is set/updated, fetch unit price if not present
+      this.fetchUnitPrice();
   }else{
       this._product={};
   }
@@ -57,7 +66,9 @@ export default class ProductCard extends LightningElement{
   get isFetchedFromOrg(){
     return !!(this._product &&(this._product.isFetchedFromOrg=== true||this._product.isPriceFromOrg=== true));
 }
-handleAdd(){
+  // Modal/View logic removed per requirement.
+
+  handleAdd(){
     const detail = {
       id: this._product?.id,
       name: this._product?.name,
@@ -68,25 +79,33 @@ handleAdd(){
   }
 
   handleRemove(){
-    const detail = {
-      id: this._product?.id
-    };
-    this.dispatchEvent(new CustomEvent('removefromcart',{ detail, bubbles: true, composed: true }));
+    // Repurposed "Remove" button to "View Details"
+    // This will trigger the view details functionality WITHOUT calling caller
+    const productId = this._product?.id || this._product?.Id;
+    if (!productId) {
+      this.dispatchEvent(new CustomEvent('showtoast', {
+        detail: { variant: 'error', title: 'Missing Product Id', message: 'Unable to view product details. No Product Id found.' },
+        bubbles: true, composed: true
+      }));
+      return;
+    }
+    
+    // Show modal instead of dispatching viewdetails event
+    this.showModal = true;
   }
 
-  async onView(){
-    const viewBtn=this.template.querySelector('.btn-view');
-    if(viewBtn) viewBtn.disabled=true;
+  handleCloseModal(){
+    this.showModal = false;
+  }
+
+  async fetchUnitPrice(){
     const productId=this._product?.id||this._product?.Id;
     if(!productId){
-      this.dispatchEvent(new CustomEvent('showtoast',{
-        detail:{variant: 'error',title: 'Missing Product Id',message: 'Unable to fetch pricebook info. No Product Id found.'},
-        bubbles: true,composed: true
-    }));
-      if(viewBtn) viewBtn.disabled=false;
+      // silently skip if productId is not ready yet
       return;
-  }
-    this.dispatchEvent(new CustomEvent('loading',{detail:{isLoading: true},bubbles: true,composed: true}));
+    }
+    // Only show loading for this card. Tag event so parents can ignore modal opening.
+    this.dispatchEvent(new CustomEvent('loading',{detail:{isLoading: true, source: 'priceFetch'},bubbles: true,composed: true}));
     try{
       const apexResult=await caller({recordId: productId, accountId: this.recordId});
       let pbeInfo=apexResult;
@@ -115,7 +134,7 @@ handleAdd(){
     }
       if(!foundRow){
         this._product={...this._product,pbes: []};
-        this.dispatchEvent(new CustomEvent('pbeinfo',{detail:{productId,data: []},bubbles: true,composed: true}));
+        // Removed PBEInfo event dispatch to eliminate modal popup
     }else{
         const extractPrice=(obj)=>{
           if(!obj) return null;
@@ -149,15 +168,14 @@ handleAdd(){
           isFetchedFromOrg: normalizedPbe.isFetchedFromOrg,
           pbes: [normalizedPbe]
       };
-        this.dispatchEvent(new CustomEvent('pbeinfo',{detail:{productId,data: normalizedPbe},bubbles: true,composed: true}));
+        // Removed PBEInfo event dispatch to eliminate modal popup
     }
   }catch(error){
       const message=error?.body?.message||error?.message||'Failed to fetch Pricebook Entry information. Please try again.';
       this.dispatchEvent(new CustomEvent('showtoast',{detail:{variant: 'error',title: 'PBE Fetch Failed',message},bubbles: true,composed: true}));
-      this.dispatchEvent(new CustomEvent('pbeerror',{detail:{productId,error},bubbles: true,composed: true}));
+      // Removed pbeerror event to eliminate modal popup
   }finally{
-      this.dispatchEvent(new CustomEvent('loading',{detail:{isLoading: false},bubbles: true,composed: true}));
-      if(viewBtn) viewBtn.disabled=false;
+      this.dispatchEvent(new CustomEvent('loading',{detail:{isLoading: false, source: 'priceFetch'},bubbles: true,composed: true}));
   }
 }
 }

@@ -1,0 +1,134 @@
+.slds-modal__container {
+    max-width: 800px;
+    width: 90%;
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.slds-modal__header {
+    background-color: #f8f9fa;
+    border-bottom: 1px solid #e0e0e0;
+    padding: 16px 20px;
+}
+
+.slds-modal__header h2 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #212121;
+}
+
+.slds-modal__close {
+    color: #666;
+}
+
+.slds-modal__close:hover {
+    color: #212121;
+}
+
+.product-image {
+    max-width: 100%;
+    height: auto;
+    border-radius: 8px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+    margin: 16px 0;
+}
+
+.slds-modal__content {
+    max-height: 70vh;
+    overflow-y: auto;
+    padding: 20px;
+}
+
+.slds-form-element {
+    margin-bottom: 16px;
+}
+
+.slds-form-element__label {
+    font-weight: 600;
+    color: #212121;
+    margin-bottom: 8px;
+    font-size: 0.9rem;
+}
+
+.slds-form-element__control {
+    color: #444;
+}
+
+.slds-form-element__control p {
+    margin: 0;
+    line-height: 1.5;
+}
+
+.detail-row {
+    display: flex;
+    margin-bottom: 16px;
+}
+
+.detail-column {
+    flex: 1;
+    padding-right: 16px;
+}
+
+.detail-column:last-child {
+    padding-right: 0;
+}
+
+.detail-value {
+    font-weight: 500;
+    color: #212121;
+}
+
+.detail-label {
+    font-weight: 600;
+    color: #666;
+    margin-bottom: 4px;
+    font-size: 0.9rem;
+}
+
+.loading-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 40px 20px;
+}
+
+.spinner-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.spinner-container lightning-spinner {
+    margin-bottom: 16px;
+}
+
+.footer-actions {
+    display: flex;
+    justify-content: flex-end;
+    padding: 16px 20px;
+    border-top: 1px solid #e0e0e0;
+    background-color: #f8f9fa;
+}
+
+.footer-actions button {
+    min-width: 100px;
+}
+
+@media (max-width: 768px) {
+    .detail-row {
+        flex-direction: column;
+    }
+    
+    .detail-column {
+        padding-right: 0;
+        margin-bottom: 16px;
+    }
+    
+    .slds-modal__container {
+        width: 95%;
+    }
+    
+    .slds-modal__content {
+        padding: 16px;
+    }
+}

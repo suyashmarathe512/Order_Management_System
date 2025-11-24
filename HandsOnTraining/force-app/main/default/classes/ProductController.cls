@@ -195,103 +195,6 @@ public with sharing class ProductController{
         }
         return sortedFamilies;
     }
-
-    /*****************************************************************************
-     * @MethodName:      caller
-     * @Description:    Retrieves product PBE information, first checking remote endpoint and falling back to local pricebook entries.
-     *********************************************************************************/
-    @AuraEnabled
-    public static ProductPBEInfo caller(Id recordId, Id accountId) {
-        if (recordId == null) return null;
-        Product2 prod;
-        try {
-            prod = [
-                SELECT Id, Name, StockKeepingUnit, ExternalId
-                FROM Product2
-                WHERE Id = :recordId
-                LIMIT 1
-            ];
-        } catch (Exception e) {
-            System.debug('Product query failed: ' + e.getMessage());
-            return null;
-        }
-        if (prod == null) return null;
-
-        ProductPBEInfo result = new ProductPBEInfo();
-        result.productId = prod.Id;
-        result.productName = prod.Name;
-        result.sku = prod.StockKeepingUnit;
-        result.isFetchedFromOrg = false;
-
-        Decimal unitPriceFromRemote = null;
-        Boolean remoteSucceeded = false;
-        String externalId = prod.ExternalId != null ? String.valueOf(prod.ExternalId).trim() : null;
-
-        if (String.isNotBlank(externalId)) {
-            Http http = new Http();
-            HttpRequest req = new HttpRequest();
-            req.setEndpoint(NAMED_CREDENTIAL_ENDPOINT);
-            req.setMethod('POST');
-            req.setHeader('Content-Type', 'text/plain');
-            req.setHeader('Accept', 'application/json');
-            req.setBody(externalId);
-            try {
-                HttpResponse resp = http.send(req);
-                Integer status = resp.getStatusCode();
-                String body = resp.getBody();
-                if (status >= 200 && status < 300) {
-                    if (body == 'null') {
-                        unitPriceFromRemote = null;
-                    } else {
-                        Object parsed = JSON.deserializeUntyped(body);
-                        if (parsed != null) {
-                            try {
-                                unitPriceFromRemote = Decimal.valueOf(String.valueOf(parsed));
-                            } catch (Exception ex2) {
-                                unitPriceFromRemote = null;
-                            }
-                        }
-                    }
-                    remoteSucceeded = true;
-                } else {
-                    System.debug('caller - remote returned non-2xx: ' + status + ' body:' + body);
-                }
-            } catch (Exception e) {
-                remoteSucceeded = false;
-                System.debug('caller - remote call failed: ' + e.getMessage());
-            }
-        }
-
-        if (remoteSucceeded && unitPriceFromRemote != null) {
-            result.unitPrice = unitPriceFromRemote;
-            result.isFetchedFromOrg = false;
-            result.isActive = true;
-            return result;
-        }
-
-        try {
-            PricebookEntry pb = [
-                SELECT Id, UnitPrice, Pricebook2Id, Pricebook2.Name, IsActive
-                FROM PricebookEntry
-                WHERE Product2Id = :recordId
-                  AND IsActive = true
-                ORDER BY CreatedDate DESC
-                LIMIT 1
-            ];
-            if (pb != null) {
-                result.pricebookEntryId = pb.Id;
-                result.pricebookId = pb.Pricebook2Id;
-                result.pricebookName = (pb.Pricebook2 != null) ? pb.Pricebook2.Name : null;
-                result.unitPrice = pb.UnitPrice;
-                result.isActive = pb.IsActive;
-            }
-        } catch (Exception e) {
-            System.debug('PricebookEntry fallback query failed: ' + e.getMessage());
-        }
-
-        result.isFetchedFromOrg = true;
-        return result;
-    }
     /*****************************************************************************
      * @MethodName:      getAccountName
      * @Description:    Retrieves the name of an account by its ID.
@@ -451,7 +354,7 @@ public with sharing class ProductController{
     }
 
     /*****************************************************************************
-     * ClassName:       ProductPage
+     * @ClassName:       ProductPage
      * @Description:    Wrapper class for paginated product data to support LWC pagination controls.
      *********************************************************************************/
     public class ProductPage {
@@ -467,7 +370,7 @@ public with sharing class ProductController{
         }
     }
     /*****************************************************************************
-     * buildQuotedList
+     *  @ClassName:      buildQuotedList
      * @Description:    Helper method to build a quoted, escaped list for dynamic SOQL queries.
      *                   Helper: build quoted, escaped list for dynamic COUNT() queries (used only for COUNT branch).
      *                     Input values are escaped via String.escapeSingleQuotes.

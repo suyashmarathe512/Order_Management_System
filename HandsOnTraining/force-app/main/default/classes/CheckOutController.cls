@@ -134,10 +134,15 @@ public with sharing class CheckOutController{
         }
         // Check for existing draft order for the account
         List<Order> existingOrders = [
-            SELECT Id, Status, EffectiveDate, BillingStreet, BillingCity, BillingState, BillingPostalCode, BillingCountry,
+            SELECT 
+                    Id, Status, EffectiveDate, BillingStreet, BillingCity, BillingState, BillingPostalCode, BillingCountry,
                    ShippingStreet, ShippingCity, ShippingState, ShippingPostalCode, ShippingCountry
-            FROM Order
-            WHERE AccountId = :accountId AND Status = 'Draft'
+            FROM 
+                Order
+            WHERE 
+                AccountId = :accountId 
+            AND 
+                Status = 'Draft'
             LIMIT 1
         ];
 
@@ -185,7 +190,6 @@ public with sharing class CheckOutController{
             Integer qty=productIdToQty.get(productId);
             PricebookEntry pbe=chosenPbeByProductId.get(productId);
             if(qty == null || pbe == null) continue;
-
             qty=(qty < 1) ? 1 : qty;
             OrderItem oi=new OrderItem();
             oi.OrderId=ord.Id;
