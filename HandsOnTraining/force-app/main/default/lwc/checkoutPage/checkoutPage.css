@@ -13,6 +13,12 @@
   margin-bottom: 24px;
   padding: 24px;
 }
+.checkout .slds-page-header__name-meta {
+  font-size: 16px;
+  font-weight: 600;
+  color: #3b82f6;
+  margin-top: 8px;
+}
 .checkout .slds-page-header__title {
   color: #1e293b;
   font-size: 28px;
@@ -121,6 +127,11 @@
   color: #1e293b;
   font-weight: 500;
 }
+.summary .slds-select {
+  width: 33%;
+  display: inline-block;
+  margin-bottom: 10px;
+}
 .summary .slds-input:focus {
   border-color: #3b82f6;
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
@@ -218,4 +229,3 @@
     font-size: 20px;
   }
 }
-

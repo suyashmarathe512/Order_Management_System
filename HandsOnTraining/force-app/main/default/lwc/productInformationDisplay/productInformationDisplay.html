@@ -8,9 +8,6 @@
             <img src={cartIconUrl} alt="Cart" class="cart-icon" />
             <div>
               <span class="pid-title" style="padding: 16px 3px 14px">Shopping Portal</span>
-              <template if:true={accountName}>
-                <p class="account-name"><strong>Account:</strong> {accountName}</p>
-              </template>
             </div>
           </div>
         </div>
@@ -27,6 +24,9 @@
       </div>
       <!-- Bottom row: Search and Filter -->
       <div class="pid-header-bottom">
+        <template if:true={accountName}>
+                <p class="account-name"><strong>Account:</strong> {accountName}</p>
+              </template>
         <div class="pid-search-container">
             <lightning-input
               class="pid-search"

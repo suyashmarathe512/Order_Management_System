@@ -41,9 +41,11 @@
     color: #072048;
 }
 .account-name {
-    margin-top: 5px;
+        margin-top: 5px;
     font-size: 1rem;
     color: #333;
+    align-items: flex-start;
+    padding-right: 684px;
 }
 /* Bottom row - search and filter */
 .pid-header-bottom{

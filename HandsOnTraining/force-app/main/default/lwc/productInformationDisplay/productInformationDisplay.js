@@ -295,6 +295,8 @@ export default class ProductInformationDisplay extends NavigationMixin(Lightning
         name: oi.Product2 ? oi.Product2.Name : '',
         qty: oi.Quantity,
         productCode: oi.Product2 ? oi.Product2.ProductCode : '',
+        price: oi.UnitPrice,
+        unitPrice: oi.UnitPrice,
         formattedPrice: this.formatCurrency(oi.UnitPrice),
         source: 'draft'
       }));
@@ -340,7 +342,11 @@ export default class ProductInformationDisplay extends NavigationMixin(Lightning
   // -----------------------
   saveCartToSession(){
     try{
-      sessionStorage.setItem('cart',JSON.stringify(this.cartItems || []));
+      const cartWithAccountId = (this.allCartItems || []).map(item => ({
+        ...item,
+        accountId: this.recordId
+      }));
+      sessionStorage.setItem('cart',JSON.stringify(cartWithAccountId));
   }catch (e){
       console.error('saveCartToSession failed',e); // Local storage kabhi block ho sakta — error log karke aage badh jao
   }
@@ -663,11 +669,14 @@ export default class ProductInformationDisplay extends NavigationMixin(Lightning
   onCheckout(){
     this.dispatchEvent(new ShowToastEvent({title:'Checkout',message:`Proceeding with ${this.cartCount}items`,variant:'success'}));
     this.closeCart();
-    const validatedCart=(this.cartItems || []).filter(item => item && item.id && item.sku);
+    // Send all cart items (both live and draft) to checkout page
+    const allCartItems = this.allCartItems || [];
     // Session me daalne se pehle har item ko account context de dete — baad me kaam aayega
-    const cartWithAccountId = validatedCart.map(item => ({
+    const cartWithAccountId = allCartItems.map(item => ({
       ...item,
-      accountId: this.recordId
+      accountId: this.recordId,
+      // Ensure UnitPrice is included for consistency
+      unitPrice: item.price || item.unitPrice || null
     }));
     try{
       sessionStorage.setItem('cart',JSON.stringify(cartWithAccountId));

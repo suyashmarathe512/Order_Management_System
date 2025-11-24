@@ -7,6 +7,9 @@
             <div class="slds-media__body">
               <div class="slds-page-header__name-title">
                 <h1 class="slds-page-header__title slds-truncate" title="Checkout">Checkout</h1>
+                <template if:true={accountName}>
+                  <div class="slds-page-header__name-meta">Account: {accountName}</div>
+                </template>
               </div>
             </div>
           </div>
@@ -83,96 +86,98 @@
                 <div class="slds-form-element">
                   <div class="slds-form-element__control">
                     <div class="slds-grid slds-gutters">
-                      <div class="slds-col slds-size_1-of-1">
-                        <div class="slds-section__title" style="font-weight: bold; font-size: 1.2em;">Account: {accountName}</div>
-                        <input type="hidden" name="accountId" value={selectedAccountId} />
-                      </div>
                     </div>
                   </div>
                 </div>
               </div>
-              <div class="slds-col slds-size_1-of-3">
-                <div class="slds-form-element">
-                  <label class="slds-form-element__label">Select Contract</label>
-                  <div class="slds-form-element__control">
-                    <select class="slds-select" value={selectedContractId} onchange={handleContractChange}>
-                      <option value="">-- Select a Contract --</option>
-                      <template for:each={contracts} for:item="contract">
-                        <option key={contract.Id} value={contract.Id}>{contract.Contract_Name__c}({contract.ContractNumber})</option>
-                      </template>
-                    </select>
-                  </div>
-                </div>
-              </div>
-              <div class="slds-col slds-size_1-of-2">
-                <div class="slds-section">
-                  <h3 class="slds-section__title address-title">Billing Address</h3>
-                  <div class="slds-section__content address-content">
-                    <div class="slds-form-element">
-                      <label class="slds-form-element__label">Street</label>
-                      <div class="slds-form-element__control">
-                        <input type="text" class="slds-input" value={billingAddress.street} onchange={handleBillingChange} data-field="street" />
-                      </div>
-                    </div>
-                    <div class="slds-form-element">
-                      <label class="slds-form-element__label">City</label>
-                      <div class="slds-form-element__control">
-                        <input type="text" class="slds-input" value={billingAddress.city} onchange={handleBillingChange} data-field="city" />
-                      </div>
-                    </div>
-                    <div class="slds-form-element">
-                      <label class="slds-form-element__label">State</label>
-                      <div class="slds-form-element__control">
-                        <input type="text" class="slds-input" value={billingAddress.state} onchange={handleBillingChange} data-field="state" />
-                      </div>
-                    </div>
-                    <div class="slds-form-element">
-                      <label class="slds-form-element__label">Postal Code</label>
-                      <div class="slds-form-element__control">
-                        <input type="text" class="slds-input" value={billingAddress.postalCode} onchange={handleBillingChange} data-field="postalCode" />
-                      </div>
-                    </div>
-                    <div class="slds-form-element">
-                      <label class="slds-form-element__label">Country</label>
-                      <div class="slds-form-element__control">
-                        <input type="text" class="slds-input" value={billingAddress.country} onchange={handleBillingChange} data-field="country" />
-                      </div>
+              <!-- 
+              <div class="slds-col slds-size_1-of-1">
+                  <div class="slds-form-element">
+                    <label class="slds-form-element__label">Select Contract</label>
+                    <div class="slds-form-element__control">
+                      <select class="slds-select" value={selectedContractId} onchange={handleContractChange}>
+                        <option value="">-- Select a Contract --</option>
+                        <template for:each={contracts} for:item="contract">
+                          <option key={contract.Id} value={contract.Id}>{contract.Contract_Name__c}</option>
+                        </template>
+                      </select>
                     </div>
                   </div>
-                </div>
               </div>
-              <div class="slds-col slds-size_1-of-2">
-                <div class="slds-section">
-                  <h3 class="slds-section__title address-title">Shipping Address</h3>
-                  <div class="slds-section__content address-content">
-                    <div class="slds-form-element">
-                      <label class="slds-form-element__label">Street</label>
-                      <div class="slds-form-element__control">
-                        <input type="text" class="slds-input" value={shippingAddress.street} onchange={handleShippingChange} data-field="street" />
+              -->
+              <div class="slds-col slds-size_1-of-1">
+                <div class="slds-grid slds-gutters slds-wrap">
+                  <div class="slds-col slds-size_1-of-2">
+                    <div class="slds-section">
+                      <h3 class="slds-section__title address-title">Billing Address</h3>
+                      <div class="slds-section__content address-content">
+                        <div class="slds-form-element">
+                          <label class="slds-form-element__label">Street</label>
+                          <div class="slds-form-element__control">
+                            <input type="text" class="slds-input" value={billingAddress.street} onchange={handleBillingChange} data-field="street" />
+                          </div>
+                        </div>
+                        <div class="slds-form-element">
+                          <label class="slds-form-element__label">City</label>
+                          <div class="slds-form-element__control">
+                            <input type="text" class="slds-input" value={billingAddress.city} onchange={handleBillingChange} data-field="city" />
+                          </div>
+                        </div>
+                        <div class="slds-form-element">
+                          <label class="slds-form-element__label">State</label>
+                          <div class="slds-form-element__control">
+                            <input type="text" class="slds-input" value={billingAddress.state} onchange={handleBillingChange} data-field="state" />
+                          </div>
+                        </div>
+                        <div class="slds-form-element">
+                          <label class="slds-form-element__label">Postal Code</label>
+                          <div class="slds-form-element__control">
+                            <input type="text" class="slds-input" value={billingAddress.postalCode} onchange={handleBillingChange} data-field="postalCode" />
+                          </div>
+                        </div>
+                        <div class="slds-form-element">
+                          <label class="slds-form-element__label">Country</label>
+                          <div class="slds-form-element__control">
+                            <input type="text" class="slds-input" value={billingAddress.country} onchange={handleBillingChange} data-field="country" />
+                          </div>
+                        </div>
                       </div>
                     </div>
-                    <div class="slds-form-element">
-                      <label class="slds-form-element__label">City</label>
-                      <div class="slds-form-element__control">
-                        <input type="text" class="slds-input" value={shippingAddress.city} onchange={handleShippingChange} data-field="city" />
-                      </div>
-                    </div>
-                    <div class="slds-form-element">
-                      <label class="slds-form-element__label">State</label>
-                      <div class="slds-form-element__control">
-                        <input type="text" class="slds-input" value={shippingAddress.state} onchange={handleShippingChange} data-field="state" />
-                      </div>
-                    </div>
-                    <div class="slds-form-element">
-                      <label class="slds-form-element__label">Postal Code</label>
-                      <div class="slds-form-element__control">
-                        <input type="text" class="slds-input" value={shippingAddress.postalCode} onchange={handleShippingChange} data-field="postalCode" />
-                      </div>
-                    </div>
-                    <div class="slds-form-element">
-                      <label class="slds-form-element__label">Country</label>
-                      <div class="slds-form-element__control">
-                        <input type="text" class="slds-input" value={shippingAddress.country} onchange={handleShippingChange} data-field="country" />
+                  </div>
+                  <div class="slds-col slds-size_1-of-2">
+                    <div class="slds-section">
+                      <h3 class="slds-section__title address-title">Shipping Address</h3>
+                      <div class="slds-section__content address-content">
+                        <div class="slds-form-element">
+                          <label class="slds-form-element__label">Street</label>
+                          <div class="slds-form-element__control">
+                            <input type="text" class="slds-input" value={shippingAddress.street} onchange={handleShippingChange} data-field="street" />
+                          </div>
+                        </div>
+                        <div class="slds-form-element">
+                          <label class="slds-form-element__label">City</label>
+                          <div class="slds-form-element__control">
+                            <input type="text" class="slds-input" value={shippingAddress.city} onchange={handleShippingChange} data-field="city" />
+                          </div>
+                        </div>
+                        <div class="slds-form-element">
+                          <label class="slds-form-element__label">State</label>
+                          <div class="slds-form-element__control">
+                            <input type="text" class="slds-input" value={shippingAddress.state} onchange={handleShippingChange} data-field="state" />
+                          </div>
+                        </div>
+                        <div class="slds-form-element">
+                          <label class="slds-form-element__label">Postal Code</label>
+                          <div class="slds-form-element__control">
+                            <input type="text" class="slds-input" value={shippingAddress.postalCode} onchange={handleShippingChange} data-field="postalCode" />
+                          </div>
+                        </div>
+                        <div class="slds-form-element">
+                          <label class="slds-form-element__label">Country</label>
+                          <div class="slds-form-element__control">
+                            <input type="text" class="slds-input" value={shippingAddress.country} onchange={handleShippingChange} data-field="country" />
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -180,6 +185,14 @@
               </div>
             </div>
           </div>
+           <div class="slds-m-top_medium" style="align-items">
+          <lightning-button 
+            label="Place Order" 
+            variant="brand" 
+            onclick={placeOrder}
+            disabled={isLoading}>
+          </lightning-button>
+        </div>
           <template if:true={orderResult}>
             <div class="slds-box slds-theme_shade invoice-section">
               <div class="slds-grid slds-gutters">
@@ -188,10 +201,10 @@
                   <div class="invoice-container">
                     <iframe src={orderResult.pdfDownloadUrl} width="100%" height="600" frameborder="0"></iframe>
                   </div>
-                </div>
-              </div>
-            </div>
-          </template>
+          </div>
+        </div>
+      </div>
+    </template>
         </div>
       </div>
     </template>
