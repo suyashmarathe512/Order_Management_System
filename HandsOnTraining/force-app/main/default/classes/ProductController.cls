@@ -309,7 +309,7 @@ public with sharing class ProductController{
             } else {
                 OrderItem existingItem = existingItems[0];
                 existingItem.Quantity = (existingItem.Quantity == null ? 0 : existingItem.Quantity) + quantity;
-                existingItem.PricebookEntryId = pbe.Id;
+                // Do not update PricebookEntryId for existing items as it's not writeable
                 Database.SaveResult srUpdate = Database.update(existingItem, false);
                 if (!srUpdate.isSuccess()) {
                     throw new AuraHandledException('Failed to update order item: ' + srUpdate.getErrors()[0].getMessage());

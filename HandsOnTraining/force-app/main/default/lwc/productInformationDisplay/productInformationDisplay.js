@@ -645,8 +645,6 @@ export default class ProductInformationDisplay extends NavigationMixin(Lightning
     const source=evt.currentTarget.dataset.source;
     if (!idToRemove) return;
     if(source === 'draft'){
-      const confirmed=confirm('Are you sure you want to remove this draft item permanently?');
-      if(!confirmed) return;
       try{
         await deleteOrderItem({orderItemId:idToRemove});
         this.dispatchEvent(new ShowToastEvent({title:'Draft item removed',message:'Draft item removed permanently',variant:'success'}));

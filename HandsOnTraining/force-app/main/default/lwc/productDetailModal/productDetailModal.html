@@ -1,5 +1,5 @@
 <template>
-    <section role="dialog" tabindex="-1" aria-modal="true" aria-labelledby="modal-heading-1" class="slds-modal slds-fade-in-open">
+    <div class="slds-modal slds-fade-in-open" role="dialog" tabindex="-1" aria-modal="true" aria-labelledby="modal-heading-1">
         <div class="slds-modal__container">
             <header class="slds-modal__header">
                 <h2 id="modal-heading-1" class="slds-text-heading_medium">Product Details</h2>
@@ -11,100 +11,17 @@
                 </button>
             </header>
             <div class="slds-modal__content">
-                <template if:true={isLoading}>
-                    <div class="loading-container">
-                        <div class="spinner-container">
-                            <lightning-spinner alternative-text="Loading..." size="large"></lightning-spinner>
-                            <p>Loading product details...</p>
-                        </div>
-                    </div>
-                </template>
-                
-                <template if:false={isLoading}>
-                    <div class="detail-row">
-                        <div class="detail-column">
-                            <div class="slds-form-element">
-                                <div class="slds-form-element__label">Name</div>
-                                <div class="slds-form-element__control">
-                                    <p class="detail-value">{product.name}</p>
-                                </div>
-                            </div>
-                            
-                            <div class="slds-form-element">
-                                <div class="slds-form-element__label">Product Code</div>
-                                <div class="slds-form-element__control">
-                                    <p class="detail-value">{product.productCode}</p>
-                                </div>
-                            </div>
-                            
-                            <div class="slds-form-element">
-                                <div class="slds-form-element__label">Family</div>
-                                <div class="slds-form-element__control">
-                                    <p class="detail-value">{product.family}</p>
-                                </div>
-                            </div>
-                            
-                            <div class="slds-form-element">
-                                <div class="slds-form-element__label">SKU</div>
-                                <div class="slds-form-element__control">
-                                    <p class="detail-value">{product.sku}</p>
-                                </div>
-                            </div>
-                            
-                            <div class="slds-form-element">
-                                <div class="slds-form-element__label">Unit Price</div>
-                                <div class="slds-form-element__control">
-                                    <p class="detail-value">{formattedPrice}</p>
-                                </div>
-                            </div>
-                            
-                            <div class="slds-form-element">
-                                <div class="slds-form-element__label">UOM</div>
-                                <div class="slds-form-element__control">
-                                    <p class="detail-value">{product.uom}</p>
-                                </div>
-                            </div>
-                            
-                            <div class="slds-form-element">
-                                <div class="slds-form-element__label">Status</div>
-                                <div class="slds-form-element__control">
-                                    <p class="detail-value">{productStatus}</p>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="detail-column">
-                            <div class="slds-form-element">
-                                <div class="slds-form-element__label">Description</div>
-                                <div class="slds-form-element__control">
-                                    <p class="detail-value">{product.description}</p>
-                                </div>
-                            </div>
-                            
-                            <template if:true={product.productImage}>
-                                <div class="slds-form-element">
-                                    <div class="slds-form-element__control">
-                                        <img src={product.productImage} alt="Product Image" class="product-image" />
-                                    </div>
-                                </div>
-                            </template>
-                            
-                            <template if:true={product.isFetchedFromOrg}>
-                                <div class="slds-form-element">
-                                    <div class="slds-form-element__label">Price Source</div>
-                                    <div class="slds-form-element__control">
-                                        <p class="detail-value">From Organization</p>
-                                    </div>
-                                </div>
-                            </template>
-                        </div>
-                    </div>
-                </template>
+                <div>
+                    <p><strong>Name:</strong> {product.name}</p>
+                    <p><strong>SKU:</strong> {product.sku}</p>
+                    <p><strong>Unit Price:</strong> {formattedPrice}</p>
+                    <p><strong>Description:</strong> {product.description}</p>
+                </div>
             </div>
-            <footer class="footer-actions">
+            <footer class="slds-modal__footer">
                 <button class="slds-button slds-button_brand" onclick={handleClose}>Close</button>
             </footer>
         </div>
-    </section>
+    </div>
     <div class="slds-backdrop slds-backdrop_open"></div>
 </template>

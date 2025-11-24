@@ -1,14 +1,6 @@
-import { LightningElement, api, track } from 'lwc';
-
+import { LightningElement, api } from 'lwc';
 export default class ProductDetailModal extends LightningElement {
     @api product;
-    @track isLoading = false;
-    
-    connectedCallback() {
-        // Initialize loading state when component loads
-        this.isLoading = true;
-    }
-    
     get formattedPrice() {
         if (!this.product || this.product.price === null || this.product.price === undefined) {
             return '';
@@ -23,14 +15,12 @@ export default class ProductDetailModal extends LightningElement {
             return `₹${this.product.price}`;
         }
     }
-
     get productStatus() {
         if (this.product && this.product.isActive !== undefined && this.product.isActive !== null) {
             return this.product.isActive ? 'Active' : 'Inactive';
         }
         return 'Unknown';
     }
-
     handleClose() {
         const closeModalEvent = new CustomEvent('closemodal');
         this.dispatchEvent(closeModalEvent);
