@@ -42,7 +42,7 @@ global with sharing class ProductPBEServices{
         }catch(Exception e){
             prod=null;
         }
-        if(prod == null){
+        if(prod==null){
             response.statusCode=200;
             response.responseBody=Blob.valueOf('null');
             return;
@@ -68,7 +68,7 @@ global with sharing class ProductPBEServices{
         }
         response.statusCode=200;
         response.responseBody=Blob.valueOf(
-            unitPrice == null?'null' : String.valueOf(unitPrice)
+            unitPrice==null?'null' : String.valueOf(unitPrice)
         );
     }
 }

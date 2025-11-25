@@ -16,7 +16,7 @@ public void execute(SchedulableContext sc){
         String seconds='0';
         String minutes=String.valueOf(nextRun.minute());
         String hours=String.valueOf(nextRun.hour());
-        String cronExp=seconds + ' ' + minutes + ' ' + hours + ' * * ?';
+        String cronExp=seconds+' '+minutes+' '+hours+' * * ?';
         System.abortJob(sc.getTriggerId());
         System.schedule('Product Sync Scheduler',cronExp,new ProductSyncScheduler());
     }

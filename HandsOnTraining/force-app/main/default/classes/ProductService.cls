@@ -22,32 +22,32 @@ global with sharing class ProductService{
                 SELECT
                     Id,Name,ProductCode,Description,IsActive,Family,StockKeepingUnit,
                 (SELECT 
-                        Id, UnitPrice, IsActive, UseStandardPrice, Product2Id, Pricebook2.Name
+                        Id,UnitPrice,IsActive,UseStandardPrice,Product2Id,Pricebook2.Name
                      FROM 
                         PricebookEntries)
                 FROM 
                     Product2
             ];
-            if(products != null && !products.isEmpty()){
+            if(products!=null && !products.isEmpty()){
                 for(Product2 p:products){
                     ProductWrapper pw=new ProductWrapper();
                     pw.Id=p.Id;
                     pw.Name=p.Name;
                     pw.ProductCode=p.ProductCode;
                     pw.Description=p.Description;
-                    pw.IsActive=(p.IsActive == null)?false:p.IsActive;
+                    pw.IsActive=(p.IsActive==null)?false:p.IsActive;
                     pw.Family=p.Family;
                     pw.StockKeepingUnit=p.StockKeepingUnit;
                     pw.pricebookEntries=new List<PricebookEntryWrapper>();
-                    if(p.PricebookEntries != null && !p.PricebookEntries.isEmpty()){
+                    if(p.PricebookEntries!=null && !p.PricebookEntries.isEmpty()){
                         for(PricebookEntry pe:p.PricebookEntries){
                             PricebookEntryWrapper pbe=new PricebookEntryWrapper();
                             pbe.Id=pe.Id;
                             pbe.UnitPrice=pe.UnitPrice;
-                            pbe.IsActive=(pe.IsActive == null)?false:pe.IsActive;
-                            pbe.UseStandardPrice=(pe.UseStandardPrice == null)?false:pe.UseStandardPrice;
+                            pbe.IsActive=(pe.IsActive==null)?false:pe.IsActive;
+                            pbe.UseStandardPrice=(pe.UseStandardPrice==null)?false:pe.UseStandardPrice;
                             pbe.Product2Id=pe.Product2Id;
-                            pbe.PricebookName=(pe.Pricebook2 != null)?pe.Pricebook2.Name:null;
+                            pbe.PricebookName=(pe.Pricebook2!=null)?pe.Pricebook2.Name:null;
                             pw.pricebookEntries.add(pbe);
                         }
                     }
@@ -58,14 +58,14 @@ global with sharing class ProductService{
             responseWrapper.message='Success';
             String jsonString=JSON.serialize(responseWrapper);
             res.statusCode=200;
-            res.addHeader('Content-Type', 'application/json; charset=UTF-8');
+            res.addHeader('Content-Type','application/json; charset=UTF-8');
             res.responseBody=Blob.valueOf(jsonString);
         }catch(Exception ex){
             responseWrapper.status='ERROR';
             responseWrapper.message='Exception: '+ex.getMessage();
             String errJson=JSON.serialize(responseWrapper);
             res.statusCode=500;
-            res.addHeader('Content-Type', 'application/json; charset=UTF-8');
+            res.addHeader('Content-Type','application/json; charset=UTF-8');
             res.responseBody=Blob.valueOf(errJson);
         }
     }
