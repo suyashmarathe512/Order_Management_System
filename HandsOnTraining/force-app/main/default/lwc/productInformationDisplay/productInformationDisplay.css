@@ -182,11 +182,11 @@
 }
 /* wrapper centers card in cell */
 .product-card-wrapper{
-    width: 100%; 
-    max-width: 360px; 
-    display: flex; 
-    justify-content: center; 
-    height: 250px;
+    width: 100%;
+    max-width: 360px;
+    display: flex;
+    justify-content: center;
+    height: fit-content;
 }
 .no-results{
     width: 100%; 

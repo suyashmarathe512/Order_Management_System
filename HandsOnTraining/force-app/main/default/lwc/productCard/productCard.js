@@ -45,12 +45,6 @@ export default class ProductCard extends LightningElement{
   get displayDescription(){
     return this._product?.description||this._product?.Description||'';
 }
-  get productImage(){
-    return this._product?.ProductImage__c||this._product?.productImage||null;
-}
-  get imageHidden(){
-    return !this.productImage;
-}
   get hasPrice(){
     return this._product && this._product.price !== null && this._product.price !== undefined;
 }

@@ -1,5 +1,8 @@
 <template>
   <article class="product-card" role="listitem" tabindex="0" aria-label={ariaLabel}>
+    <!-- Product Image Component -->
+    <c-product-image record-id={product.id}></c-product-image>
+    
     <template if:true={isFetchedFromOrg}>
       <div class="org-star" title="Price from Org" aria-hidden="false">
         <svg viewBox="0 0 24 24" class="org-star-icon" focusable="false" aria-hidden="true">
@@ -14,15 +17,13 @@
         <p class="sku"><strong>SKU:</strong> {product.sku}</p>
       </div>
     </div>
-    <div class="card-body">
-      <p title={product.description}>{product.description}</p>
-    </div>
+    <!-- Description section removed as requested -->
     <div class="price-row">
       <template if:true={hasPrice}>
         <span class="price" title="Unit Price">{formattedPrice}</span>
       </template>
       <template if:false={hasPrice}>
-        <span class="price price--loading" title="Fetching price...">Fetching price…</span>
+        <span class="price price--loading" title="Fetching price...">Price Unavailable</span>
       </template>
     </div>
     <div class="action-block">
