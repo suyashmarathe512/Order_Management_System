@@ -25,19 +25,18 @@
                 <table class="slds-table slds-table_bordered slds-table_cell-buffer">
                   <thead>
                     <tr class="slds-line-height_reset">
-                      <th class="slds-text-heading_label" scope="col">Product</th>
-                      <th class="slds-text-heading_label" scope="col">Quantity</th>
-                      <th class="slds-text-heading_label" scope="col">Unit Price</th>
-                      <th class="slds-text-heading_label" scope="col">Line Total</th>
-                      <th class="slds-text-heading_label" scope="col">Actions</th>
+                      <th class="slds-text-heading_label" scope="col" style="font-size: 20px;font-weight: bold;">Product</th>
+                      <th class="slds-text-heading_label" scope="col" style="font-size: 20px;font-weight: bold;">Quantity</th>
+                      <th class="slds-text-heading_label" scope="col" style="font-size: 20px;font-weight: bold;">Unit Price</th>
+                      <th class="slds-text-heading_label" scope="col" style="font-size: 20px;font-weight: bold;">Line Total</th>
+                      <th class="slds-text-heading_label" scope="col" style="font-size: 20px;font-weight: bold;">Remove</th>
                     </tr>
                   </thead>
                   <tbody>
                     <template for:each={cart} for:item="item">
                       <tr key={item.id} class="slds-hint-parent">
                         <td>
-                          <div class="product-name" title={item.name}>{item.name}</div>
-                          <div class="product-sku">SKU: {item.sku}</div>
+                          <div class="product-name" style="font-size:18px" title={item.name}>{item.name}</div>
                         </td>
                         <td>
                           <div class="slds-grid slds-grid_vertical-align-center qty-editor">
@@ -67,21 +66,31 @@
                         </td>
                         <td class="slds-text-align_right unit-price">{item.formattedPrice}</td>
                         <td class="slds-text-align_right line-total">{item.formattedLineTotal}</td>
-                        <td>
-                          <button data-id={item.id} onclick={removeLine} class="slds-button slds-button_outline-brand slds-button_neutral slds-button_small remove-btn">Remove</button>
+                        <td styl="align-items: center; text-align: center; justify-content: center; display: flex;">
+                          <lightning-button-icon 
+                            data-id={item.id} 
+                            onclick={removeLine} 
+                            icon-name="utility:delete" 
+                            variant="bare"
+                            size="Large"
+                            title="Remove">
+                          </lightning-button-icon>
                         </td>
                       </tr>
                     </template>
                   </tbody>
                 </table>
+                <div class="slds-col slds-size_1-of-1">
+                  <div class="slds-text-heading_medium subtotal">Subtotal:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{formattedSubtotal}</div>
+                  <div class="slds-text-heading_medium tax">Tax (8%):&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{formattedTaxAmount}</div>
+                  <div style="padding-left:807px;font-size: 20px;">-----------------------</div>
+                  <div class="slds-text-heading_medium total">Total:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{formattedTotalIncludingTax}</div>
+              </div>
               </div>
             </div>
           </div>
           <div class="slds-box slds-theme_shade summary">
             <div class="slds-grid slds-gutters slds-wrap">
-              <div class="slds-col slds-size_1-of-1">
-                <div class="slds-text-heading_medium total">Total: {formattedTotal}</div>
-              </div>
               <div class="slds-col slds-size_1-of-1">
                 <div class="slds-form-element">
                   <div class="slds-form-element__control">
@@ -170,7 +179,7 @@
               </div>
             </div>
           </div>
-           <div class="slds-m-top_medium" style="align-items">
+           <div class="slds-m-top_medium" style="align-items: center; text-align: center; justify-content: center; display: flex; padding-bottom: 8px;">
           <lightning-button 
             label="Place Order" 
             variant="brand" 

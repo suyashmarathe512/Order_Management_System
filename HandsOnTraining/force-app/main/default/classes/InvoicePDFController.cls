@@ -23,6 +23,8 @@ public with sharing class InvoicePDFController{
                 Account.Name
             FROM 
                 Order
+            WHERE 
+                Status='Activated'
             ORDER BY
                 CreatedDate DESC
             LIMIT 1

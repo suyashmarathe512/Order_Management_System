@@ -105,8 +105,23 @@ export default class CheckoutPage extends NavigationMixin(LightningElement){
     get total(){
         return this.cart.reduce((sum,it)=> sum +((it.price||0) *(it.qty||1)),0);
     }
-    get formattedTotal(){
+    get taxAmount(){
+        return this.total * 0.08;
+    }
+    get totalIncludingTax(){
+        return this.total + this.taxAmount;
+    }
+    get formattedSubtotal(){
         return this.currencyFormatter(this.total);
+    }
+    get formattedTaxAmount(){
+        return this.currencyFormatter(this.taxAmount);
+    }
+    get formattedTotalIncludingTax(){
+        return this.currencyFormatter(this.totalIncludingTax);
+    }
+    get formattedTotal(){
+        return this.currencyFormatter(this.totalIncludingTax);
     }
     get currencyFormatter(){
         return(val)=>{

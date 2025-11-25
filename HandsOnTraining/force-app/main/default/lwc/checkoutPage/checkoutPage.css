@@ -93,14 +93,6 @@
   font-weight: 700;
   font-size: 16px;
 }
-.remove-btn {
-  color: #dc2626;
-  font-weight: 500;
-}
-.remove-btn:hover {
-  background: #fef2f2;
-  color: #b91c1c;
-}
 .new-account-btn{
     padding: 20px;
     size: landscape;
@@ -108,8 +100,7 @@
     HEIGHT: 60px;
 }
 .summary {
-  margin-top: 24px;
-  padding: 24px;
+  padding: 9px;
   background: #f8fafc;
   color: #1e293b;
   border-radius: 12px;
@@ -136,12 +127,30 @@
   border-color: #3b82f6;
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
+.subtotal {
+    font-size: 20px;
+    font-weight: 400;
+    color: #1e293b;
+    text-align: right;
+    margin: -2px 0;
+    padding-right: 128px;
+    padding-bottom: 0px;
+}
+.tax {
+           font-size: 20px;
+    font-weight: 400;
+    color: #1e293b;
+    text-align: right;
+    padding-right: 138px;
+}
 .total {
-  font-size: 24px;
-  font-weight: 800;
-  color: #1e293b;
-  text-align: center;
-  margin: 16px 0;
+   font-size: 24px; 
+    font-weight: 600;
+    color: #1e293b;
+    text-align: right;
+    margin: -2px 0;
+    padding-right: 122px;
+    padding-bottom: 4px;
 }
 .button-group {
   display: flex;
@@ -173,13 +182,6 @@
   background: white;
   border-radius: 12px;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07);
-}
-.address-title {
-  font-weight: bold;
-  padding: 16px;
-}
-.address-content {
-  padding: 16px;
 }
 .empty-cart div:first-child {
   font-size: 24px;
@@ -228,4 +230,36 @@
   .total {
     font-size: 20px;
   }
+}
+.address-title {
+  font-weight: bold;
+  padding: 16px;
+  color: #1f2937;
+  font-size: 18px;
+  border-bottom: 1px solid #e5e7eb;
+  background-color: lightgrey;
+}
+.address-content {
+  padding: 20px;
+  background: #fefefe;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+.address-content .slds-form-element {
+  margin-bottom: 12px;
+}
+.address-content .slds-form-element__label {
+  color: #374151;
+  font-size: 14px;
+  font-weight: 600;
+}
+.address-content .slds-input {
+  font-size: 16px;
+  border-color: #cbd5e0;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.address-content .slds-input:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);
 }
