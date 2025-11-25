@@ -1,0 +1,18 @@
+<!-- file: productImageViewer.html -->
+<template>
+    <template if:true={hasImage}>
+        <lightning-card title="Product Image">
+            <div class="slds-p-around_medium slds-align_absolute-center">
+                <img src={imageUrl} alt="Product Image" style="max-height: 200px; max-width: 200px;" />
+            </div>
+        </lightning-card>
+    </template>
+
+    <template if:false={hasImage}>
+        <lightning-card title="Product Image">
+            <div class="slds-p-around_medium slds-align_absolute-center">
+                <p>No image available.</p>
+            </div>
+        </lightning-card>
+    </template>
+</template>
