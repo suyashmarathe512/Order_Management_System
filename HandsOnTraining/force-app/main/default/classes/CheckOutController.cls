@@ -20,7 +20,7 @@ public with sharing class CheckOutController{
     }
     
     // Wrapper class for billing address information
-    public class BillingAddress {
+    public class BillingAddress{
         @AuraEnabled public String street;
         @AuraEnabled public String city;
         @AuraEnabled public String state;
@@ -29,7 +29,7 @@ public with sharing class CheckOutController{
     }
     
     // Wrapper class for shipping address information
-    public class ShippingAddress {
+    public class ShippingAddress{
         @AuraEnabled public String street;
         @AuraEnabled public String city;
         @AuraEnabled public String state;
@@ -38,10 +38,13 @@ public with sharing class CheckOutController{
     }
     
     // Wrapper class for order creation parameters
-    public class OrderCreationParams {
-        @AuraEnabled public List<Id> productIds;
+    public class OrderCreationParams{
+        // Accept raw identifiers as strings to support formats like:
+        // - '802xxxxxxxxxxxxxxx' (OrderItem Id)
+        // - '01txxxxxxxxxxxxxxx' (Product2 Id)
+        // - 'temp_01txxxxxxxxxxxxxxx_1764048937359' (wrapped Product2 Id)
+        @AuraEnabled public List<String> orderItemsIds;
         @AuraEnabled public List<String> names;
-        @AuraEnabled public List<String> skus;
         @AuraEnabled public List<Integer> qtys;
         @AuraEnabled public List<Decimal> prices;
         @AuraEnabled public Id accountId;
@@ -52,150 +55,469 @@ public with sharing class CheckOutController{
 /************************************************************************************************
  * @Author :      CRM Team Innovation
  * @MethodName:    createOrderFromCart
- * @params :      productIds,names,skus,qtys,prices,accountId,contractId,billingStreet,billingCity,
+ * @params :      orderItemsIds,names,skus,qtys,prices,accountId,contractId,billingStreet,billingCity,
  * @Description:   this wrapper class is used to return the order id,line item count,
  *                     total amount,content version id and content document id.
  **************************************************************************************************/
-    @AuraEnabled
-    public static CreateOrderResult createOrderFromCart(List<Id> orderProductIds,List<String> names,List<String> skus,List<Integer> qtys,List<Decimal> prices,Id accountId,Id contractId,String billingStreet,String billingCity,String billingState,String billingPostalCode,String billingCountry,String shippingStreet,String shippingCity,String shippingState,String shippingPostalCode,String shippingCountry){
-        if(orderProductIds == null || orderProductIds.isEmpty()){
-            throw new AuraHandledException('Cart is empty');
-        }
-        if(accountId == null){
-            throw new AuraHandledException('Account is required');
-        }
-        if(contractId == null){
-            throw new AuraHandledException('Contract is required');
-        }
-                List<Account> accList = [SELECT 
-                                        Id 
-                                    FROM 
-                                        Account 
-                                    WHERE 
-                                        Id = :accountId 
-                                    LIMIT 1];
-        if(accList.isEmpty()){
-            throw new AuraHandledException('Account not found');
-        }
-        // Instead of querying PricebookEntry, we'll work directly with OrderItem records
-        // which already contain the necessary pricing information
+@AuraEnabled
+public static CreateOrderResult createOrderFromCart(String jsonParams) {
+
+
+    try {
+        OrderCreationParams params = (OrderCreationParams) JSON.deserialize(jsonParams, OrderCreationParams.class);
+
+        /******************* BASIC VALIDATION *******************/
+        if (params == null) {
         
-        // Query the OrderItem records to get their details
-        List<OrderItem> orderItems = [SELECT 
-                                            Id, OrderId, PricebookEntryId, Quantity, UnitPrice, Product2Id 
-                                      FROM 
-                                        OrderItem 
-                                      WHERE 
-                                        Id IN :orderProductIds];
+            throw new AuraHandledException('Order parameters are required.');
+        }
+
+        /******************* SPLIT IDS: 802* vs PRODUCT2 (supports temp_... wrapper) *******************/
+        List<String> rawIdsStr = (params.orderItemsIds == null) ? new List<String>() : params.orderItemsIds;
+        List<Id> orderItemIds = new List<Id>(); // 802* => OrderItem
+        List<Id> product2Ids  = new List<Id>(); // baaki => Product2
+        // Maintain a parallel list of "effective" Product2Ids for index-based qty/price mapping
+        List<Id> effectiveProduct2IdsByIndex = new List<Id>();
+
+        for (String s : rawIdsStr) {
+            if (String.isBlank(s)) {
+                effectiveProduct2IdsByIndex.add(null);
+                continue;
+            }
+
+            // Handle temp_ prefix: expected format "temp_{18charProduct2Id}_<suffix>"
+            if (s.startsWith('temp_')) {
+                Integer startIdx = 5; // length of 'temp_'
+                if (s.length() >= startIdx + 18) {
+                    String maybeId = s.substring(startIdx, startIdx + 18);
+                    try {
+                        Id parsedId = (Id) maybeId;
+                        product2Ids.add(parsedId);
+                        effectiveProduct2IdsByIndex.add(parsedId);
+                        continue;
+                    } catch (Exception eCast) {
+                        // will fallthrough to treat as unresolved
+                    }
+                }
+                effectiveProduct2IdsByIndex.add(null);
+                continue;
+            }
+
+            // 802* are OrderItem Ids
+            if (s.length() >= 3 && s.substring(0, 3) == '802') {
+                try {
+                    orderItemIds.add((Id)s);
+                } catch (Exception e802) {
+                    // ignore invalid id
+                }
+                effectiveProduct2IdsByIndex.add(null);
+            } else {
+                // Treat as Product2 Id
+                try {
+                    Id p2 = (Id)s;
+                    product2Ids.add(p2);
+                    effectiveProduct2IdsByIndex.add(p2);
+                } catch (Exception eP2) {
+                    effectiveProduct2IdsByIndex.add(null);
+                }
+            }
+        }
+
+        if (orderItemIds.isEmpty() && effectiveProduct2IdsByIndex.isEmpty()) {
         
-        // Validate that all requested OrderItems exist
-        Set<Id> requestedOrderItemIds = new Set<Id>(orderProductIds);
-        Set<Id> foundOrderItemIds = new Set<Id>();
-        for(OrderItem oi : orderItems) {
-            foundOrderItemIds.add(oi.Id);
+            throw new AuraHandledException('Your cart is empty. Please add items first.');
         }
-        // Check for missing OrderItems
-        Set<Id> missingOrderItemIds = requestedOrderItemIds.clone();
-        missingOrderItemIds.removeAll(foundOrderItemIds);
-        if(!missingOrderItemIds.isEmpty()){
-            throw new AuraHandledException('Missing OrderItems: ' + String.join(missingOrderItemIds, ','));
+
+        /******************* ACCOUNT RESOLUTION *******************/
+        // Pehla attempt: params se direct
+        Id accountId = params.accountId;
+    
+
+        // Doosra attempt: agar 802* ids hai to OrderItem → Order.AccountId se nikaal lo
+        if (accountId == null && !orderItemIds.isEmpty()) {
+            try {
+                OrderItem sampleOi = [
+                    SELECT 
+                        Id, Order.AccountId
+                    FROM 
+                        OrderItem
+                    WHERE 
+                        Id IN :orderItemIds
+                    LIMIT 1
+                ];
+                if (sampleOi.Order != null) {
+                    accountId = sampleOi.Order.AccountId;
+                
+                }
+            } catch (Exception eOiAcc) {
+            
+            }
         }
-        // Build map of OrderItems by Id for easy lookup
-        Map<Id, OrderItem> orderItemMap = new Map<Id, OrderItem>();
-        for(OrderItem oi : orderItems) {
-            orderItemMap.put(oi.Id, oi);
+
+        // Teesra attempt: agar Contract दिया हुआ hai to usse AccountId le lo
+        if (accountId ==null && params.contractId != null) {
+            try {
+                Contract cAcc = [
+                    SELECT Id, AccountId
+                    FROM Contract
+                    WHERE Id = :params.contractId
+                    LIMIT 1
+                ];
+                accountId = cAcc.AccountId;
+            
+            } catch (Exception eConAcc) {
+            
+            }
         }
-        // Check for existing draft order for the account
-        List<Order> existingOrders = [
-            SELECT 
-                    Id, Status, EffectiveDate, BillingStreet, BillingCity, BillingState, BillingPostalCode, BillingCountry,
-                   ShippingStreet, ShippingCity, ShippingState, ShippingPostalCode, ShippingCountry
-            FROM 
-                Order
-            WHERE 
-                AccountId = :accountId 
-            AND 
-                Status = 'Draft'
+
+        if (accountId == null) {
+        
+            throw new AuraHandledException('Account is required to place an order.');
+        }
+
+        /******************* ACCOUNT LOAD *******************/
+        Account acc;
+        try {
+            acc = [
+                SELECT Id
+                FROM Account
+                WHERE Id = :accountId
+                LIMIT 1
+            ];
+        } catch (Exception eAcc) {
+        
+            throw new AuraHandledException('Selected account not found or invalid.');
+        }
+
+        /******************* SNAPSHOT FROM ORDERITEM (802*) *******************/
+        List<OrderItem> cartItems = new List<OrderItem>();
+        if (!orderItemIds.isEmpty()) {
+            cartItems = [
+                SELECT Id, Quantity, UnitPrice, PricebookEntryId
+                FROM OrderItem
+                WHERE Id IN :orderItemIds
+            ];
+        }
+    
+
+        // Agar na 802 wale mile, na Product2Ids aaye, tabhi cart truly empty hai
+        if (cartItems.isEmpty() && product2Ids.isEmpty()) {
+        
+            throw new AuraHandledException('Your cart is empty. Please add items.');
+        }
+
+        Map<Id, OrderItem> cartMap = new Map<Id, OrderItem>(cartItems);
+
+        // Pricebook2Id nikalne ki primary try: existing OIs se
+        Id pb2Id = null;
+        for (OrderItem oi : cartItems) {
+            if (oi.PricebookEntryId != null && pb2Id == null) {
+                PricebookEntry pbe = [
+                    SELECT Pricebook2Id
+                    FROM PricebookEntry
+                    WHERE Id = :oi.PricebookEntryId
+                    LIMIT 1
+                ];
+                pb2Id = pbe.Pricebook2Id;
+            }
+        }
+    
+
+        /******************* CONTRACT RESOLUTION *******************/
+        Contract con = null;
+
+        // Step A: client se aaya contractId – par Account match hona chahiye
+        if (params.contractId != null) {
+            List<Contract> tryCon = [
+                SELECT Id, AccountId, Pricebook2Id, Status
+                FROM Contract
+                WHERE Id = :params.contractId
+                LIMIT 1
+            ];
+            if (!tryCon.isEmpty() && tryCon[0].AccountId == acc.Id) {
+                con = tryCon[0];
+            
+            } else if (!tryCon.isEmpty()) {
+            
+            }
+        }
+
+        // Step B: agar abhi bhi null – isi Account ka latest Contract utha lo
+        if (con == null) {
+            List<Contract> accCon = [
+                SELECT Id, AccountId, Pricebook2Id, Status
+                FROM Contract
+                WHERE AccountId = :acc.Id
+                ORDER BY CreatedDate DESC
+                LIMIT 1
+            ];
+            if (!accCon.isEmpty()) {
+                con = accCon[0];
+            
+            }
+        }
+
+        // Step C: agar phir bhi null – naya Contract DRAFT me bana rahe
+        if (con == null) {
+        
+
+            // agar pb2Id abhi null hai (sirf Product2Ids ka case) to yaha handle karna hoga
+            if (pb2Id == null) {
+                try {
+                    Pricebook2 stdPb = [SELECT Id FROM Pricebook2 WHERE IsStandard = true LIMIT 1];
+                    pb2Id = stdPb.Id;
+                } catch (Exception ePb) {
+                
+                }
+            }
+
+            con = new Contract(
+                AccountId    = acc.Id,
+                Status       = 'Draft',   // new contract must start Draft
+                StartDate    = Date.today(),
+                Pricebook2Id = pb2Id
+            );
+            insert con;
+        
+        } else {
+            // Contract ka Pricebook agar missing hai to OI/cart waala set kar dete
+            if (con.Pricebook2Id == null && pb2Id != null) {
+                con.Pricebook2Id = pb2Id;
+                update con;
+            
+            }
+        }
+
+        // Final PB choose karte – Contract se, warna OI/cart/standard se
+        Id finalPB2 = (con.Pricebook2Id != null) ? con.Pricebook2Id : pb2Id;
+    
+
+        if (finalPB2 == null && !product2Ids.isEmpty()) {
+        
+            throw new AuraHandledException('No pricebook is configured to price the selected products.');
+        }
+
+        /******************* ORDER AS DRAFT *******************/
+        List<Order> drafts = [
+            SELECT Id, Status
+            FROM Order
+            WHERE AccountId = :acc.Id
+            AND Status = 'Draft'
             LIMIT 1
         ];
+    
 
         Order ord;
-        Boolean isNewOrder = false;
-        if (!existingOrders.isEmpty()) {
-            ord = existingOrders[0];
-            // Update addresses and effective date
-            ord.ContractId = contractId;
-            ord.EffectiveDate = Date.today();
-            ord.BillingStreet = billingStreet;
-            ord.BillingCity = billingCity;
-            ord.BillingState = billingState;
-            ord.BillingPostalCode = billingPostalCode;
-            ord.BillingCountry = billingCountry;
-            ord.ShippingStreet = shippingStreet;
-            ord.ShippingCity = shippingCity;
-            ord.ShippingState = shippingState;
-            ord.ShippingPostalCode = shippingPostalCode;
-            ord.ShippingCountry = shippingCountry;
-            update ord;
-        } else {
-            ord = new Order();
-            ord.AccountId = accountId;
-            ord.Status = 'Draft';
-            ord.EffectiveDate = Date.today();
-            ord.BillingStreet = billingStreet;
-            ord.BillingCity = billingCity;
-            ord.BillingState = billingState;
-            ord.BillingPostalCode = billingPostalCode;
-            ord.BillingCountry = billingCountry;
-            ord.ShippingStreet = shippingStreet;
-            ord.ShippingCity = shippingCity;
-            ord.ShippingState = shippingState;
-            ord.ShippingPostalCode = shippingPostalCode;
-            ord.ShippingCountry = shippingCountry;
-            insert ord;
-            isNewOrder = true;
-        }
-        List<OrderItem> itemsToInsert=new List<OrderItem>();
-        Decimal total=0;
-        Integer lineCount=0;
-        // Process each OrderItem directly
-        for(Id orderItemId : orderProductIds) {
-            OrderItem oi = orderItemMap.get(orderItemId);
-            if(oi == null) continue;
-            
-            // Use the existing OrderItem's pricing information
-            OrderItem newItem = new OrderItem();
-            newItem.OrderId = ord.Id;
-            newItem.PricebookEntryId = oi.PricebookEntryId;
-            newItem.Quantity = oi.Quantity;
-            newItem.UnitPrice = oi.UnitPrice;
-            itemsToInsert.add(newItem);
-            
-            total += (oi.UnitPrice == null ? 0 : oi.UnitPrice) * oi.Quantity;
-            lineCount++;
-        }
-        if(!itemsToInsert.isEmpty()) insert itemsToInsert;
-        // Activate the order after inserting items
-        ord.Status = 'Activated';
-        update ord;
-        Id contentVersionId=null;
-        Id contentDocumentId=null;
-        try{
-            Map<String,Id> fileIds=saveInvoicePdfToAccount(ord.Id,accountId,'Invoice-' + String.valueOf(ord.Id) + '.pdf');
-            if(fileIds != null){
-                contentVersionId=fileIds.get('contentVersionId');
-                contentDocumentId=fileIds.get('contentDocumentId');
+        if (!drafts.isEmpty()) {
+            ord = drafts[0];
+        
+
+            // Purane line items delete – cart snapshot refresh karne ke liye
+            List<OrderItem> existing = [
+                SELECT Id
+                FROM OrderItem
+                WHERE OrderId = :ord.Id
+            ];
+        
+            if (!existing.isEmpty()) {
+                delete existing;
             }
-        }catch(Exception e){System.debug('PDF generation failed: ' + e);
+
+            ord.Pricebook2Id  = finalPB2;
+            ord.ContractId    = con.Id;
+            ord.EffectiveDate = Date.today();
+
+            if (params.billingAddress != null) {
+                ord.BillingStreet     = params.billingAddress.street;
+                ord.BillingCity       = params.billingAddress.city;
+                ord.BillingState      = params.billingAddress.state;
+                ord.BillingPostalCode = params.billingAddress.postalCode;
+                ord.BillingCountry    = params.billingAddress.country;
+            }
+            if (params.shippingAddress != null) {
+                ord.ShippingStreet     = params.shippingAddress.street;
+                ord.ShippingCity       = params.shippingAddress.city;
+                ord.ShippingState      = params.shippingAddress.state;
+                ord.ShippingPostalCode = params.shippingAddress.postalCode;
+                ord.ShippingCountry    = params.shippingAddress.country;
+            }
+
+            update ord;
+        
+
+        } else {
+            ord = new Order(
+                AccountId     = acc.Id,
+                Pricebook2Id  = finalPB2,
+                ContractId    = con.Id,
+                EffectiveDate = Date.today(),
+                Status        = 'Draft'
+            );
+
+            if (params.billingAddress != null) {
+                ord.BillingStreet     = params.billingAddress.street;
+                ord.BillingCity       = params.billingAddress.city;
+                ord.BillingState      = params.billingAddress.state;
+                ord.BillingPostalCode = params.billingAddress.postalCode;
+                ord.BillingCountry    = params.billingAddress.country;
+            }
+            if (params.shippingAddress != null) {
+                ord.ShippingStreet     = params.shippingAddress.street;
+                ord.ShippingCity       = params.shippingAddress.city;
+                ord.ShippingState      = params.shippingAddress.state;
+                ord.ShippingPostalCode = params.shippingAddress.postalCode;
+                ord.ShippingCountry    = params.shippingAddress.country;
+            }
+
+            insert ord;
+        
         }
-        CreateOrderResult result=new CreateOrderResult();
-        result.orderId=ord.Id;
-        result.lineItemCount=lineCount;
-        result.totalAmount=total;
-        result.contentVersionId=contentVersionId;
-        result.contentDocumentId=contentDocumentId;
-        return result;
+
+        /******************* PREP PBE FOR Product2Ids *******************/
+        Map<Id, PricebookEntry> pbeByProduct = new Map<Id, PricebookEntry>();
+        if (!product2Ids.isEmpty()) {
+            List<PricebookEntry> pbes = [
+                SELECT Id, Product2Id
+                FROM PricebookEntry
+                WHERE Product2Id IN :product2Ids
+                AND Pricebook2Id = :finalPB2
+                AND IsActive = true
+            ];
+            for (PricebookEntry pe : pbes) {
+                pbeByProduct.put(pe.Product2Id, pe);
+            }
+        
+        }
+
+        /******************* CREATE ORDER ITEMS *******************/
+        List<OrderItem> newItems = new List<OrderItem>();
+        Decimal total = 0;
+
+        // 1) Clone existing 802* OrderItems (cartItems)
+        for (OrderItem baseOi : cartItems) {
+            if (baseOi == null) continue;
+
+            OrderItem newOi = new OrderItem(
+                OrderId          = ord.Id,
+                PricebookEntryId = baseOi.PricebookEntryId,
+                Quantity         = baseOi.Quantity,
+                UnitPrice        = baseOi.UnitPrice
+            );
+            newItems.add(newOi);
+
+            if (baseOi.UnitPrice != null) {
+                total += baseOi.UnitPrice * baseOi.Quantity;
+            }
+        }
+
+        // 2) New lines from Product2Ids using qtys/prices from params (index-based mapping, supports temp_ ids)
+        for (Integer i = 0; i < rawIdsStr.size(); i++) {
+            String s = rawIdsStr[i];
+            if (String.isBlank(s)) continue;
+
+            // Skip existing OrderItem ids (802*)
+            if (s.length() >= 3 && s.substring(0, 3) == '802') {
+                continue;
+            }
+
+            // Resolve effective Product2Id for this index:
+            Id productId = (i < effectiveProduct2IdsByIndex.size()) ? effectiveProduct2IdsByIndex[i] : null;
+            if (productId == null) {
+                // Try parsing from raw when not temp_ and not 802
+                try {
+                    productId = (Id)s;
+                } catch (Exception eId) {
+                
+                    continue;
+                }
+            }
+
+            PricebookEntry pe = pbeByProduct.get(productId);
+            if (pe == null) {
+            
+                continue; // agar pricebook-entry hi nahi hai to skip kar rahe
+            }
+
+            Integer qty   = (params.qtys   != null && i < params.qtys.size())   ? params.qtys[i]   : 1;
+            Decimal price = (params.prices != null && i < params.prices.size()) ? params.prices[i] : null;
+
+            // Ensure UnitPrice is set - either from params or from PricebookEntry
+            Decimal finalPrice = price;
+            if (finalPrice == null && pe != null) {
+                // Try to get price from PricebookEntry if not provided in params
+                try {
+                    PricebookEntry pbe = [
+                        SELECT UnitPrice
+                        FROM PricebookEntry
+                        WHERE Id = :pe.Id
+                        LIMIT 1
+                    ];
+                    finalPrice = pbe.UnitPrice;
+                } catch (Exception e) {
+                    // If we can't get price from PBE, we'll let it fail naturally
+                
+                }
+            }
+
+            OrderItem newOiFromProd = new OrderItem(
+                OrderId          = ord.Id,
+                PricebookEntryId = pe.Id,
+                Quantity         = qty,
+                UnitPrice        = finalPrice
+            );
+            newItems.add(newOiFromProd);
+
+            if (price != null) {
+                total += price * qty;
+            }
+        }
+
+        if (newItems.isEmpty()) {
+        
+            throw new AuraHandledException('No order lines could be created from the cart.');
+        }
+        insert newItems;
+    
+
+/******************* ACTIVATE ORDER (IF CONTRACT ACTIVATED) *******************/
+// Update the contract status to Activated before activating the order
+try {
+    if (con.Status != 'Activated') {
+        con.Status = 'Activated';
+        update con;
+    
     }
+} catch (Exception e) {
+
+}
+
+if (con.Status == 'Activated') {
+    ord.Status = 'Activated';
+    update ord;
+
+} else {
+
+}
+
+        /******************* BUILD RESULT *******************/
+        CreateOrderResult res = new CreateOrderResult();
+        res.orderId       = ord.Id;
+        res.lineItemCount = newItems.size();
+        res.totalAmount   = total;
+
+    
+        return res;
+    }
+    catch (AuraHandledException ahe) {
+    
+        throw ahe;
+    }
+    catch (Exception e) {
+    
+        throw e;
+    }
+}
+
 /************************************************************************************************
  * @Author :      CRM Team Innovation
  * @ClassName:    saveInvoicePdfToAccount
@@ -203,7 +525,7 @@ public with sharing class CheckOutController{
  * @Description:   this method is used to save the invoice pdf to the account.
  **************************************************************************************************/
     public static Map<String,Id> saveInvoicePdfToAccount(Id orderId,Id accountId,String fileName){
-        if(orderId == null) return null;PageReference pr=Page.InvoicePDF;
+        if(orderId==null) return null;PageReference pr=Page.InvoicePDF;
         pr.getParameters().put('id',String.valueOf(orderId));
         Blob pdfBlob;
         try{
@@ -213,7 +535,7 @@ public with sharing class CheckOutController{
         }
         ContentVersion cv=new ContentVersion();
         cv.Title=fileName != null ? fileName.replace('.pdf','') : 'Invoice';
-        cv.PathOnClient='/' +(fileName == null ?('Invoice-' + String.valueOf(orderId) + '.pdf') : fileName);
+        cv.PathOnClient='/' +(fileName==null ?('Invoice-' + String.valueOf(orderId) + '.pdf') : fileName);
         cv.VersionData=pdfBlob;
         if(accountId != null){
             cv.FirstPublishLocationId=accountId;
@@ -248,7 +570,7 @@ public with sharing class CheckOutController{
     }
     @AuraEnabled
     public static AccountInfo getAccountInfo(Id accountId){
-        if(accountId == null){
+        if(accountId==null){
             return null;
         }
         Account acc=[SELECT 
@@ -285,7 +607,7 @@ public with sharing class CheckOutController{
  ********************************************************************************************/
     @AuraEnabled
     public static List<Contract> getContractsForAccount(Id accountId){
-        if(accountId == null){
+        if(accountId==null){
             return new List<Contract>();
         }
         return [SELECT 
@@ -293,31 +615,31 @@ public with sharing class CheckOutController{
                 FROM 
                     Contract 
                 WHERE 
-                    AccountId = :accountId 
+                    AccountId=:accountId 
                 AND 
-                    Status = 'Activated' 
+                    Status='Activated' 
                 ORDER BY 
                     ContractNumber];
     }
-    /*****************************************************************************
+    /***************************************************************************** 
      * @methodName:     deletOrderItem
      * @Param orderItemId The Id of the OrderItem to delete
      * @description:    Deletes an OrderItem from the database.
      *********************************************************************************/
     @AuraEnabled
-    public static void deleteOrderItem(Id orderItemId) {
-        if (orderItemId == null) {
+    public static void deleteOrderItem(Id orderItemId){
+        if(orderItemId==null){
             throw new AuraHandledException('OrderItem Id is required');
         }
         // Query the OrderItem to verify it exists
-        List<OrderItem> orderItems = [SELECT 
+        List<OrderItem> orderItems=[SELECT 
                                         Id 
                                     FROM 
                                         OrderItem 
                                     WHERE 
-                                        Id = :orderItemId 
+                                        Id=:orderItemId 
                                     LIMIT 1];
-        if (orderItems.isEmpty()) {
+        if(orderItems.isEmpty()){
             throw new AuraHandledException('OrderItem not found');
         }
         // Delete the OrderItem

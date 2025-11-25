@@ -80,7 +80,6 @@ export default class CheckoutPage extends NavigationMixin(LightningElement){
   }catch(e){
     console.error('Error processing cart from session storage:', e);
   }
-
         const handleCartUpdate=(event)=>{
             if(event.detail && event.detail.cart){
                 this.cart=event.detail.cart.map(item=>({
@@ -194,101 +193,147 @@ export default class CheckoutPage extends NavigationMixin(LightningElement){
             console.error('Error saving cart to session storage:', e);
         }
     }
-
-    placeOrder(){
-        const cartArray=Array.from(this.cart || []);
-        if(!cartArray.length){
-            this.dispatchEvent(new ShowToastEvent({
-                title:'Empty cart',
-                message:'Add products first',
-                variant:'warning'
-            }));
-            return;
-        }
-        this.isLoading=true;
-        const productIds=cartArray.map(item=> item.id);
-        const names=cartArray.map(item=> item.name);
-        const skus=cartArray.map(item=> item.sku);
-        const qtys=cartArray.map(item=> item.qty);
-        const prices=cartArray.map(item=> item.price);
-        
-        // Create address objects
-        const billingAddress = {
-            street: this.billingAddress.street,
-            city: this.billingAddress.city,
-            state: this.billingAddress.state,
-            postalCode: this.billingAddress.postalCode,
-            country: this.billingAddress.country
-        };
-        
-        const shippingAddress = {
-            street: this.shippingAddress.street,
-            city: this.shippingAddress.city,
-            state: this.shippingAddress.state,
-            postalCode: this.shippingAddress.postalCode,
-            country: this.shippingAddress.country
-        };
-        // Create order parameters object
-        // Hardcoded contractId as requested
-        const orderParams = {
-            orderProductIds: productIds,
-            names: names,
-            skus: skus,
-            qtys: qtys,
-            prices: prices,
-            accountId: this.selectedAccountId,
-            contractId: '800d200001Zp7h7AAB', // Hardcoded contractId as requested
-            billingStreet: billingAddress.street,
-            billingCity: billingAddress.city,
-            billingState: billingAddress.state,
-            billingPostalCode: billingAddress.postalCode,
-            billingCountry: billingAddress.country,
-            shippingStreet: shippingAddress.street,
-            shippingCity: shippingAddress.city,
-            shippingState: shippingAddress.state,
-            shippingPostalCode: shippingAddress.postalCode,
-            shippingCountry: shippingAddress.country
-        };
-        console.log('Order parameters being sent to Apex:', JSON.stringify(orderParams));
-        createOrderFromCart(orderParams)
-            .then(res=>{
-                this.orderResult=res;
-                this.dispatchEvent(new ShowToastEvent({
-                    title:'Order Created',
-                    message:`Order ${res.orderId} created (${res.lineItemCount} lines)`,
-                    variant:'success'
-                }));
-                sessionStorage.removeItem('cart');
-                this.cart=[];
-                if(res.contentVersionId){
-                    const cvId=res.contentVersionId;
-                    const url=window.location.origin+'/sfc/servlet.shepherd/version/download/'+cvId;
-                    window.open(url,'_blank');
-                }else if(res.contentDocumentId){
-                    const docId=res.contentDocumentId;
-                    const url=window.location.origin+'/sfc/servlet.shepherd/document/download?docId='+docId;
-                    window.open(url,'_blank');
-                }else{
-                    const vfUrl=window.location.origin+'/apex/InvoicePdf?id='+res.orderId;
-                    this[NavigationMixin.Navigate]({
-                        type:'standard__webPage',
-                        attributes:{
-                            url:vfUrl
-                        }
-                    });
-                }
-            })
-            .catch(err=>{
-                this.dispatchEvent(new ShowToastEvent({
-                    title:'Order failed',
-                    message: errorMessage,
-                    variant:'error'
-                }));
-            })
-            .finally(()=>{
-                this.isLoading=false;
-            });
+    // Chhota helper – yaha newline ko safe bana rahe
+    normalizeStreet(street) {
+    if (!street) {
+        return '';
     }
+    // \r\n → space, extra spaces trim kar diye
+    return street.replace(/\r\n/g, ' ').replace(/\n/g, ' ').trim();
+}
+
+    placeOrder() {
+    const cartArray = Array.from(this.cart || []);
+
+    // Cart empty hai to yahi se user ko bol do
+    if (!cartArray.length) {
+        this.dispatchEvent(
+            new ShowToastEvent({
+                title: 'Empty cart',
+                message: 'Add products first',
+                variant: 'warning'
+            })
+        );
+        return;
+    }
+
+    this.isLoading = true;
+
+    // Yaha dhyaan se: OrderItem Ids bhej rahe hain, Product Ids nahi
+    const orderItemsIds = cartArray.map(item => item.id); // Using item.id which contains OrderItem IDs for draft items or Product IDs for regular items
+    const names         = cartArray.map(item => item.name);
+    const qtys          = cartArray.map(item => item.qty);
+    const prices        = cartArray.map(item => item.price);
+
+    // Billing address object – Apex BillingAddress wrapper ke fields se match hai
+    const billingAddress = {
+    street: this.normalizeStreet(this.billingAddress.street),
+    city: this.billingAddress.city,
+    state: this.billingAddress.state,
+    postalCode: this.billingAddress.postalCode,
+    country: this.billingAddress.country
+};
+
+    const shippingAddress = {
+    street: this.normalizeStreet(this.shippingAddress.street),
+    city: this.shippingAddress.city,
+    state: this.shippingAddress.state,
+    postalCode: this.shippingAddress.postalCode,
+    country: this.shippingAddress.country
+};
+
+
+    // OrderCreationParams ke structure ke hisaab se wrapper bana rahe
+    const orderParams = {
+        orderItemsIds: orderItemsIds,      // Apex: List<Id> orderItemsIds (OrderItem Ids)
+        names: names,
+        qtys: qtys,
+        prices: prices,
+        accountId: this.selectedAccountId,
+        contractId: this.selectedContractId || '', 
+        billingAddress: billingAddress,
+        shippingAddress: shippingAddress
+    };
+
+    const orderParamsJson = JSON.stringify(orderParams);
+
+    console.log('Order parameters JSON being sent to Apex:', orderParamsJson);
+
+    // Apex method signature changed to accept JSON string
+    createOrderFromCart({ jsonParams: orderParamsJson })
+        .then(res => {
+            console.log('createOrderFromCart result:', res);
+
+            // Guard: agar result null/undefined aaya to thoda readable error de do
+            if (!res || !res.orderId) {
+                throw new Error('Order creation failed: server did not return an Order Id.');
+            }
+
+            this.orderResult = res;
+
+            this.dispatchEvent(
+                new ShowToastEvent({
+                    title: 'Order Created',
+                    message: `Order ${res.orderId} created (${res.lineItemCount} lines)`,
+                    variant: 'success'
+                })
+            );
+
+            // Cart clean kar rahe – order place ho chuka hai
+            sessionStorage.removeItem('cart');
+            this.cart = [];
+
+            // Invoice / PDF handling – tumhara existing flow
+            if (res.contentVersionId) {
+                const cvId = res.contentVersionId;
+                const url =
+                    window.location.origin +
+                    '/sfc/servlet.shepherd/version/download/' +
+                    cvId;
+                window.open(url, '_blank');
+            } else if (res.contentDocumentId) {
+                const docId = res.contentDocumentId;
+                const url =
+                    window.location.origin +
+                    '/sfc/servlet.shepherd/document/download?docId=' +
+                    docId;
+                window.open(url, '_blank');
+            } else if (res.orderId) {
+                const vfUrl =
+                    window.location.origin +
+                    '/apex/InvoicePdf?id=' +
+                    res.orderId;
+                this[NavigationMixin.Navigate]({
+                    type: 'standard__webPage',
+                    attributes: {
+                        url: vfUrl
+                    }
+                });
+            }
+        })
+        .catch(err => {
+            console.error('Create order error:', err);
+            // AuraHandledException ke liye err.body.message aata hai, baaki ke liye fallback
+            const message =
+                err && err.body && err.body.message
+                    ? err.body.message
+                    : err && err.message
+                    ? err.message
+                    : 'Unexpected error while creating order.';
+
+            this.dispatchEvent(
+                new ShowToastEvent({
+                    title: 'Order failed',
+                    message: message,
+                    variant: 'error'
+                })
+            );
+        })
+        .finally(() => {
+            this.isLoading = false;
+        });
+}
+
 
     getAccountDetails(accountId) {
         if (accountId) {

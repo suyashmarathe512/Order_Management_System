@@ -269,14 +269,40 @@ export default class ProductInformationDisplay extends NavigationMixin(Lightning
   wiredOrders({error,data}){
     if(data){
       try{
-        const filtered=(data || []).filter(w => w && w.order && w.order.Status === 'Draft');
-        this.orders=filtered;
+        // Always map to a safe structure
+        let filtered=(data || []).filter(w => w && w.order && w.order.Status === 'Draft')
+          .map(w => ({
+            order: w.order,
+            orderItems: Array.isArray(w.orderItems) ? w.orderItems.slice() : []
+          }));
+
+        // Apply optimistic deletion filter only if we actually deleted something
+        if (this._deletedDraftItemIds && this._deletedDraftItemIds.size > 0) {
+          const deletedSet = this._deletedDraftItemIds;
+          filtered = filtered.map(w => ({
+            ...w,
+            orderItems: (w.orderItems || []).filter(oi => oi && !deletedSet.has(oi.Id))
+          }));
+        }
+
+        // If we have optimistic adds, append them but DO NOT override existing server items
+        if (this._optimisticAdds && this._optimisticAdds.length) {
+          if (filtered.length === 0) {
+            filtered = [{ order: { Status: 'Draft' }, orderItems: [] }];
+          }
+          filtered[0] = {
+            ...filtered[0],
+            orderItems: (filtered[0].orderItems || []).concat(this._optimisticAdds)
+          };
+        }
+
+        this.orders = filtered;
       }catch(e){
-        console.error('wiredOrders mapping error', e); // Kabhi-kabhi payload odd hota hai — guard kar diya
+        console.error('wiredOrders mapping error', e);
         this.orders=[];
       }
     }else if(error){
-      console.error('Error loading orders for account',error); // Wire error? Safe default lagao
+      console.error('Error loading orders for account',error);
       this.orders=[];
     }else{
       this.orders=[];
@@ -287,9 +313,10 @@ export default class ProductInformationDisplay extends NavigationMixin(Lightning
   // Chhote getters — UI ko saaf data dene ke liye
   // -----------------------
   get allCartItems(){
-    if (!this.orders) return this.cartItems || [];
-    const draftItems = this.orders.flatMap(wrapper => {
-      if (!wrapper.orderItems) return [];
+    // Show ONLY Draft Order Items from backend
+    if (!Array.isArray(this.orders) || this.orders.length === 0) return [];
+    return this.orders.flatMap(wrapper => {
+      if (!wrapper || !wrapper.orderItems) return [];
       return wrapper.orderItems.map(oi => ({
         id: oi.Id,
         name: oi.Product2 ? oi.Product2.Name : '',
@@ -301,18 +328,6 @@ export default class ProductInformationDisplay extends NavigationMixin(Lightning
         source: 'draft'
       }));
     });
-    const liveItems = (this.cartItems || []).map(item => ({
-      ...item,
-      source: 'live'
-    }));
-    // Live + Draft merge kar rahe — id se duplicates mat lao (live ko priority)
-    const merged = [...liveItems];
-    draftItems.forEach(draft => {
-      if (!liveItems.some(live => live.id === draft.id)) {
-        merged.push(draft);
-      }
-    });
-    return merged;
   }
   get cartCount(){
     if (!this.allCartItems) return 0;
@@ -449,7 +464,6 @@ export default class ProductInformationDisplay extends NavigationMixin(Lightning
   // Cart handlers — UI-only, yaha server-side DML nahi chalega
   // -----------------------
   @track isAddingToCart = false;
-
   async handleAddToCart(e){
     const prod=e.detail;
     if (!prod || !prod.id){
@@ -460,34 +474,26 @@ export default class ProductInformationDisplay extends NavigationMixin(Lightning
       this.dispatchEvent(new ShowToastEvent({title:'Please wait',message:'Item is being added to cart, please wait...',variant:'info'}));
       return;
     }
-    // Agar already cart me hai toh qty chhedna nahi — UX simple rakho
-    const existing=this.cartItems.find(i => i.id === prod.id);
-    if (existing){
-      this.dispatchEvent(new ShowToastEvent({title:'Already in cart',message:`${prod.name} is already in the cart.`,variant:'info'}));
-      return;
-    }
+
+    // Optimistic UI add
+    const tempId = `temp_${prod.id}_${Date.now()}`;
+    this._optimisticallyAddDraftItem(tempId, prod);
 
     this.isAddingToCart = true;
     try {
       await addToOrder({accountId: this.recordId, productId: prod.id, price: prod.price, quantity: 1});
-      const cartItem ={
-        id:prod.id,
-        name:prod.name,
-        sku:prod.sku || prod.productCode || null,
-        price:prod.price,
-        qty:1,
-        formattedPrice:this.formatCurrency(prod.price)
-      };
-      this.cartItems=[...this.cartItems,cartItem];
-      this.saveCartToSession();
+      // Important: don't clear optimistic adds until wire brings back server items
+      // Just trigger refresh; optimistic items will coexist until server echoes the new item
+      this._forceOrdersRefresh();
       this.dispatchEvent(new ShowToastEvent({title:'Added to cart',message:prod.name || 'Product added',variant:'success'}));
     } catch (error) {
-      this.dispatchEvent(new ShowToastEvent({title:'Error',message:'Failed to add item to cart.',variant:'error'}));
+      // Roll back optimistic row
+      this._removeOptimisticItem(tempId);
+      this.dispatchEvent(new ShowToastEvent({title:'Info',message:'Item is already in cart.',variant:'Info'}));
     } finally {
       this.isAddingToCart = false;
     }
   }
-
   handleViewDetails(e){
     this.modalProduct=e.detail;
     this.showModal=true;
@@ -497,7 +503,6 @@ export default class ProductInformationDisplay extends NavigationMixin(Lightning
     });
   }
 }
-
   handlePbeInfo(evt){
     // PBE data ko normalize karke readable format me convert kar rahe — UI ko clean rows milen
     const{productId,data}= evt.detail ||{};
@@ -650,17 +655,23 @@ export default class ProductInformationDisplay extends NavigationMixin(Lightning
     const idToRemove=evt.currentTarget.dataset.id;
     const source=evt.currentTarget.dataset.source;
     if (!idToRemove) return;
-    if(source === 'draft'){
-      try{
+
+    // Optimistic UI delete: remove immediately and mark as deleted to suppress reappearance until refresh completes
+    this._optimisticDelete(idToRemove);
+
+    try{
+      if(source === 'draft'){
         await deleteOrderItem({orderItemId:idToRemove});
         this.dispatchEvent(new ShowToastEvent({title:'Draft item removed',message:'Draft item removed permanently',variant:'success'}));
-        // Draft remove ho gaya — ab orders wire ko refresh ka signal
-        this.wiredOrders();
-      }catch(error){
-        this.dispatchEvent(new ShowToastEvent({title:'Deleted',message:'Please Reload',variant:'info'}));
+      }else{
+        this.removeFromCart(evt);
       }
-    }else{
-      this.removeFromCart(evt);
+      // Re-fetch authoritative data
+      this._forceOrdersRefresh();
+    }catch(error){
+      // Roll back optimistic delete on failure
+      this._rollbackOptimisticDelete(idToRemove);
+      this.dispatchEvent(new ShowToastEvent({title:'Error',message:'Failed to remove item. Please try again.',variant:'error'}));
     }
   }
   // -----------------------
@@ -763,11 +774,77 @@ export default class ProductInformationDisplay extends NavigationMixin(Lightning
       try{
         const result=await getAccountName({recordId:this.recordId});
         return result;
-    }catch (error){
+      }catch (error){
         console.error('Error fetching account name:',error); // Fetch fail hua toh null dekar gracefully degrade karo
         return null;
+      }
+    }
+    return null;
+  }
+
+  // Optimistic UI helpers and refresh utilities
+  _ordersRefreshKey = 0;
+  _optimisticAdds = [];
+  _deletedDraftItemIds = new Set();
+
+  _forceOrdersRefresh(){
+    // Reassign recordId to retrigger wire; schedule microtask to avoid sync glitches
+    this._ordersRefreshKey++;
+    const prev = this.recordId;
+    this.recordId = null;
+    Promise.resolve().then(() => { this.recordId = prev; });
+  }
+
+  _optimisticallyAddDraftItem(tempId, prod){
+    const optimisticRow = {
+      Id: tempId,
+      Quantity: 1,
+      UnitPrice: prod.price,
+      Product2: { Name: prod.name, ProductCode: prod.sku || prod.productCode || '' }
+    };
+    this._optimisticAdds = [...this._optimisticAdds, optimisticRow];
+    // Proactively update UI without waiting for wire — append to existing first wrapper instead of replacing
+    if (Array.isArray(this.orders) && this.orders.length > 0) {
+      const first = this.orders[0];
+      const currentItems = Array.isArray(first.orderItems) ? first.orderItems.slice() : [];
+      const next = [{ ...first, orderItems: currentItems.concat([optimisticRow]) }].concat(this.orders.slice(1));
+      this.orders = next;
+    } else {
+      this.orders = [{ order: { Status: 'Draft' }, orderItems: [optimisticRow] }];
     }
   }
-    return null;
-}
+
+  _removeOptimisticItem(tempId){
+    this._optimisticAdds = this._optimisticAdds.filter(r => r.Id !== tempId);
+    // Remove from visible list too
+    if (this.orders && this.orders[0] && Array.isArray(this.orders[0].orderItems)) {
+      this.orders = [{
+        ...this.orders[0],
+        orderItems: this.orders[0].orderItems.filter(r => r.Id !== tempId)
+      }];
+    }
+  }
+
+  _clearOptimisticAdds(){
+    // Keep optimistic adds until we see a server item with same Product2 or a new orderItem echo, to avoid vanishing
+    // This function is no longer used after add; retained for possible future explicit clears.
+  }
+
+  _optimisticDelete(orderItemId){
+    // Remove item from current orders view immediately
+    if (Array.isArray(this.orders)) {
+      this.orders = this.orders.map(w => ({
+        ...w,
+        orderItems: (w.orderItems || []).filter(oi => oi.Id !== orderItemId)
+      }));
+    }
+    // Track as deleted so wired refresh doesn't re-add it transiently
+    this._deletedDraftItemIds.add(orderItemId);
+  }
+
+  _rollbackOptimisticDelete(orderItemId){
+    // Simply remove the deletion mark; next refresh will bring it back
+    this._deletedDraftItemIds.delete(orderItemId);
+    this._forceOrdersRefresh();
+  }
 }
