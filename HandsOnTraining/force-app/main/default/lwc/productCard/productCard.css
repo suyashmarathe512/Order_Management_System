@@ -6,16 +6,15 @@
     background: #fff;
     border-radius: 8px;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
-    padding: 24px;
-    width: 100%;
+    padding: 1rem;
     display: flex;
     flex-direction: column;
     margin: 0;
-    min-width: auto;
     box-sizing: border-box;
-    min-height: 350px;
-    height: 350px;
-    /* Ensure consistent height */
+    height: 420px;
+    width: auto;
+    /* Ensure consistent height and width */
+    min-width: 100%;
 }
 .org-star{
   position: absolute;
@@ -134,11 +133,9 @@
 }
 @media (max-width: 768px){
   .product-card{
-    padding: 20px;
-    min-height: 350px;
+    padding: 1rem;
     height: 350px;
-    width: 100%;
-    min-width: 300px;
+    min-height: 350px;
   }
   .product-title{
     font-size: 15px;

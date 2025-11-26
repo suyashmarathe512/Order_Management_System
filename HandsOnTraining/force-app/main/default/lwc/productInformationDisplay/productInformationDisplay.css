@@ -1,66 +1,76 @@
 .pid-header{
-    position: sticky;
+       position: relative;
     top: 1px;
-    z-index: 10;
+    z-index: 32;
     background: linear-gradient(180deg, #ffffff 0%, #f9f9f9 100%);
-    padding: 10px 20px;
+    padding: 1px 17px;
     box-shadow: 0 6px 18px rgba(2, 6, 23, 0.04);
-    border-radius: 30px;
+    border-radius: 11px;
     margin: 6px 2px 2px 1px;
-    height: 150px;
+    height: 136px;
 }
 .cart-icon{ 
-     width: 100px;
-    height: 97px;
-    padding: 5px 0px 0px;
+    width: 21%;
+    height: 7%;
+    padding: 29px 0px 0px;
     fill: #072048;
     align-items: flex-end;
-    position: relative;}
+    position: relative;
+}
 .pid-header-inner{
     display: flex;
     flex-direction: column;
     height: 100%;
     width: 100%;
+    justify-content: space-between;
+    align-items: stretch;
 }
 /* Top row - title and cart */
 .pid-header-top{
-    display: flex;
+            display: flex;
     align-items: center;
     justify-content: space-between;
-    flex: 0 0 30%;
-    max-height: 74px;
+    flex: 1 0 30%;
+    max-height: 37%;
+    flex-direction: row;
+    width: 100%;
+    flex-wrap: nowrap;
 }
 .pid-brand{
-       display: flex;
+           padding: 11px 0px 0px;
+    display: flex;
     align-items: flex-end;
-    gap: 10px;
+    gap: 0px;
+    padding-right: 33px;
 }
 .pid-title{
-    font-weight: 700;
+       font-weight: 400;
     font-size: 2.45rem;
     color: #072048;
 }
 .account-name {
-        margin-top: 5px;
+               margin-top: 5px;
     font-size: 1rem;
     color: #333;
     align-items: flex-start;
-    padding-right: 684px;
+    padding-right: 49%;
+    padding-left: 3%;
 }
 /* Bottom row - search and filter */
 .pid-header-bottom{
-    display: flex;
-    align-items: center;
+   display: flex;
     flex: 0 0 20%;
-    height: 68%;
+    height: 25%;
     box-sizing: border-box;
+    align-items: center;
+    flex-direction: row;
     justify-content: space-between;
 }
 .pid-search-section{
-    display: flex;
+        display: flex;
     flex-direction: row;
     flex: 1;
-    min-width: 0;
+    min-width: 37%;
     flex-wrap: wrap;
     align-content: stretch;
 }
@@ -93,11 +103,11 @@
     justify-content: flex-end;
 }
 .filter-container{
-    position: relative;
+        position: relative;
     display: flex;
     align-items: center;
     justify-content: flex-end;
-    padding: 0 10px;
+    padding: 0px 3px 6px;
     min-width: 0;
 }
 .filter-indicator{
@@ -114,8 +124,8 @@
     --lwc-button-height: 36px;
 }
 .cart-btn{
-    width: 47px;
-    height: 45px;
+    width: 149%;
+    height: 41px;
     cursor: pointer;
     font-size: 16px !important;
     border-radius: 91px;
@@ -123,7 +133,7 @@
 .cart-badge{
     position: absolute;
     top: -5px;
-    right: 1px;
+    right: -9px;
     background: #ff5a5f;
     color: #fff;
     padding: 5px 8px;
@@ -136,20 +146,20 @@
     margin: 0 10px 12px 10px;
 }
 .product-grid{
-    display: grid;
-    /* Improved responsive grid with more breakpoints */
+           display: grid;
     grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    gap: 1.5rem;
-    align-items: start;
-    justify-items: center;
+    align-items: baseline;
+    justify-items: stretch;
     padding: 0;
     box-sizing: border-box;
     max-height: calc(100vh - 220px);
     overflow-y: auto;
     scrollbar-gutter: stable both-edges;
     scroll-behavior: smooth;
-    max-width: 1800px;
-    margin: 0 auto;
+    max-width: 1811px;
+    grid-auto-rows: 1fr;
+    align-content: space-evenly;
+    justify-content: center;
 }
 /* visually hide scrollbar while preserving scroll functionality */
 .product-grid::-webkit-scrollbar {
@@ -186,8 +196,12 @@
     width: 100%;
     display: flex;
     justify-content: center;
-    height: fit-content;
-    padding: 0.5rem;
+    height: 450px;
+    padding: 0.125rem;
+    /* Ensure consistent card height */
+    min-height: 450px;
+    /* Ensure full width usage */
+    box-sizing: border-box;
 }
 .no-results{
     width: 100%; 
@@ -206,21 +220,28 @@
     font-size: 0.95rem;
 }
 /* responsive  */
-@media (min-width: 1400px) {
+@media (min-width: 1600px){
+    .product-grid {
+        grid-template-columns: repeat(6, minmax(0, 1fr));
+    }
+}
+
+@media (min-width: 1400px){
+    .product-grid {
+        grid-template-columns: repeat(6, minmax(0, 1fr));
+    }
+}
+
+@media (min-width: 1200px){
     .product-grid {
         grid-template-columns: repeat(5, minmax(0, 1fr));
     }
 }
 
-@media (min-width: 1200px) and (max-width: 1399px) {
-    .product-grid {
-        grid-template-columns: repeat(4, minmax(0, 1fr));
-    }
-}
-
 @media (min-width: 992px) and (max-width: 1199px) {
     .product-grid {
-        grid-template-columns: repeat(3, minmax(0, 1fr));
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+                max-width: 1103px;
     }
 }
 
@@ -242,7 +263,7 @@
 /* Additional responsive adjustments */
 @media (max-width: 576px) {
     .product-grid {
-        gap: 1rem;
+        gap: 0.75rem;
     }
     
     .pid-search {
