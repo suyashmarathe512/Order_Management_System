@@ -61,8 +61,6 @@
             </table>
             <div style="width:100%;display:flex;justify-content:flex-end;margin-top:15px;">
                 <table style="width:300px;border:1px solid #007bff;">
-                    <tr><td style="background:#007bff;color:white;font-weight:bold;">Subtotal</td><td class="right" style="background:#f0f8ff;">INR<apex:outputText value="{0, number, ###,###.##}"><apex:param value="{!subtotal}"/></apex:outputText></td></tr>
-                    <tr><td>Tax</td><td class="right">{!tax}%</td></tr>
                     <tr><td style="font-weight:bold;background:#007bff;color:white;">Total</td><td class="right" style="font-weight:bold;background:#f0f8ff;">INR<apex:outputText value="{0, number, ###,###.##}"><apex:param value="{!total}"/></apex:outputText></td></tr>
                 </table>
             </div>

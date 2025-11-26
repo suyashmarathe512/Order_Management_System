@@ -49,24 +49,25 @@
 }
 /* Bottom row - search and filter */
 .pid-header-bottom{
-        display: flex;
+    display: flex;
     align-items: center;
-    justify-content: flex-end;
     flex: 0 0 20%;
-    height: 100%;
+    height: 68%;
     box-sizing: border-box;
+    justify-content: space-between;
 }
 .pid-search-section{
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     flex: 1;
     min-width: 0;
+    flex-wrap: wrap;
+    align-content: stretch;
 }
 .pid-search{
-    width: 101%;
-    max-width: 100%;
-    padding: 5px 0px 8px;
-    padding-left: 299px;
+    width: 606px;
+    padding: 5px 2px 8px;
+    padding-left: 60px;
     --sds-c-input-color-background: white;
 }
 .pid-actions{
@@ -113,10 +114,11 @@
     --lwc-button-height: 36px;
 }
 .cart-btn{
-    width: 91px;
-    height: 32px;
+    width: 47px;
+    height: 45px;
     cursor: pointer;
-    font-size: 19px !important;
+    font-size: 16px !important;
+    border-radius: 91px;
 }
 .cart-badge{
     position: absolute;
@@ -135,16 +137,19 @@
 }
 .product-grid{
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 18px 20px;
+    /* Improved responsive grid with more breakpoints */
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1.5rem;
     align-items: start;
     justify-items: center;
-    padding: 18px;
+    padding: 0;
     box-sizing: border-box;
     max-height: calc(100vh - 220px);
-    overflow-y: auto; /* allow scrolling so lazy loading works */
-    scrollbar-gutter: stable both-edges; /* avoid layout shift when scrollbar appears */
+    overflow-y: auto;
+    scrollbar-gutter: stable both-edges;
     scroll-behavior: smooth;
+    max-width: 1800px;
+    margin: 0 auto;
 }
 /* visually hide scrollbar while preserving scroll functionality */
 .product-grid::-webkit-scrollbar {
@@ -152,24 +157,20 @@
     height: 0px;
 }
 .product-grid {
-    -ms-overflow-style: none;  /* IE and Edge */
-    scrollbar-width: none;     /* Firefox */
+    -ms-overflow-style: none;  
+    scrollbar-width: none;     
 }
-/* hide scrollbar cross-browser just in case parent causes it */
 :host {
-    /* Keep host non-scrolling; the grid scrolls instead so lazy loading triggers */
     overflow: hidden;
-    overscroll-behavior: contain; /* contain overscroll effects without blocking scroll inside grid */
+    overscroll-behavior: contain;
 }
-/* Hide scrollbar*/
-/* Keep host scrollbar hidden only */
 :host::-webkit-scrollbar {
     display: none;
 }
 /* Hide scrollbar for IE, Edge, and Firefox */
 :host {
-    -ms-overflow-style: none;  /* IE and Edge */
-    scrollbar-width: none;     /* Firefox */
+    -ms-overflow-style: none; 
+    scrollbar-width: none;     
 }
 /* when loading */
 .product-skeleton-card{
@@ -183,10 +184,10 @@
 /* wrapper centers card in cell */
 .product-card-wrapper{
     width: 100%;
-    max-width: 360px;
     display: flex;
     justify-content: center;
     height: fit-content;
+    padding: 0.5rem;
 }
 .no-results{
     width: 100%; 
@@ -205,28 +206,48 @@
     font-size: 0.95rem;
 }
 /* responsive  */
-@media (max-width: 1200px){
-    .product-grid{
+@media (min-width: 1400px) {
+    .product-grid {
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+    }
+}
+
+@media (min-width: 1200px) and (max-width: 1399px) {
+    .product-grid {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+}
+
+@media (min-width: 992px) and (max-width: 1199px) {
+    .product-grid {
         grid-template-columns: repeat(3, minmax(0, 1fr));
     }
-    .pid-search{
-        width: 520px;
-    }
 }
-@media (max-width: 900px){
-    .product-grid{
+
+@media (min-width: 768px) and (max-width: 991px) {
+    .product-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
-    .pid-search{
-        width: 380px;
-    }
 }
-@media (max-width: 480px){
-    .product-grid{
+
+@media (max-width: 767px) {
+    .product-grid {
         grid-template-columns: repeat(1, minmax(0, 1fr));
     }
-    .pid-search{
+    .pid-search {
         width: calc(100% - 80px);
+    }
+}
+
+/* Additional responsive adjustments */
+@media (max-width: 576px) {
+    .product-grid {
+        gap: 1rem;
+    }
+    
+    .pid-search {
+        width: 100%;
+        padding: 0 10px;
     }
 }
 /* FILTER MODAL  */

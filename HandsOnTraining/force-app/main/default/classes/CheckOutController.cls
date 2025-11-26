@@ -458,10 +458,7 @@ public static CreateOrderResult createOrderFromCart(String jsonParams){
         if(con.Status=='Activated'){
             ord.Status='Activated';
             update ord;
-            // Call saveInvoicePdfToAccount after successful order activation
-            saveInvoicePdfToAccount(ord.Id,acc.Id);
-        } else{
-            }
+        }
         /******************* BUILD RESULT *******************/
         CreateOrderResult res=new CreateOrderResult();
         res.orderId     =ord.Id;
@@ -479,66 +476,88 @@ public static CreateOrderResult createOrderFromCart(String jsonParams){
 /************************************************************************************************
  * @Author :      CRM Team Innovation
  * @ClassName:    saveInvoicePdfToAccount
- * @params :      orderId,accountId,fileName
- * @Description:   this method is used to save the invoice pdf to the account.
+ * @Description:   Isolated method. Query the most recent Activated Order (post-commit),
+ *                 render its invoice as PDF, save to Files, link to Account and Order,
+ *                 and send the same PDF to the external FileService. Takes no parameters.
  **************************************************************************************************/
-    public static Map<String,Id> saveInvoicePdfToAccount(Id orderId,Id accountId){
-        if(orderId==null) return null;
-        // Query order for Name and EffectiveDate
-        Order ord=[SELECT 
-                        Name,EffectiveDate 
-                    FROM 
-                        Order 
-                    WHERE 
-                        Id=:orderId LIMIT 1];
-        // Construct filename as OrderName_EffectiveDate.pdf
-        String invoiceFileName=(ord.Name!=null?ord.Name : 'Invoice')+'_'+
-                                (ord.EffectiveDate!=null?String.valueOf(ord.EffectiveDate) : '')+'.pdf';
-        PageReference pr=Page.InvoicePDF;
-        pr.getParameters().put('id',String.valueOf(orderId));
+ @AuraEnabled   
+ public static Map<String,Id> saveInvoicePdfToAccount(){
+        // 1) Find the most recent Activated Order
+        List<Order> latestOrders = [
+            SELECT Id, Name, EffectiveDate, AccountId
+            FROM Order
+            WHERE Status = 'Activated'
+            ORDER BY CreatedDate DESC
+            LIMIT 1
+        ];
+        if(latestOrders.isEmpty()){
+            return null;
+        }
+        Order ord = latestOrders[0];
+        // 2) Load Account Name if available (for external FileService)
+        Account accName = null;
+        if(ord.AccountId != null){
+            List<Account> accs = [
+                SELECT Id, Name
+                FROM Account
+                WHERE Id = :ord.AccountId
+                LIMIT 1
+            ];
+            if(!accs.isEmpty()){
+                accName = accs[0];
+            }
+        }
+        // 3) Build filename and render the VF as PDF for the specific Order Id
+        String invoiceFileName = (ord.Name != null ? ord.Name : 'Invoice') + '_' +
+                                 (ord.EffectiveDate != null ? String.valueOf(ord.EffectiveDate) : '') + '.pdf';
+        PageReference pr = Page.InvoicePdf;
+        pr.getParameters().put('id', String.valueOf(ord.Id));
         Blob pdfBlob;
         try{
-            pdfBlob=pr.getContentAsPDF();
+            pdfBlob = pr.getContentAsPDF();
         }catch(VisualforceException vfEx){
-            throw new AuraHandledException('Failed to render PDF: '+vfEx.getMessage());
+            throw new AuraHandledException('Failed to render PDF: ' + vfEx.getMessage());
         }
-        ContentVersion cv=new ContentVersion();
-        cv.Title=invoiceFileName.replace('.pdf','');
-        cv.PathOnClient='/'+invoiceFileName;
-        cv.VersionData=pdfBlob;
-        if(accountId!=null){
-            cv.FirstPublishLocationId=accountId;
+        // 4) Save to Files: publish to Account when available; else to current user
+        ContentVersion cv = new ContentVersion();
+        cv.Title = invoiceFileName.replace('.pdf','');
+        cv.PathOnClient = '/' + invoiceFileName;
+        cv.VersionData = pdfBlob;
+        if (ord.AccountId != null) {
+            cv.FirstPublishLocationId = ord.AccountId;
+        } else {
+            cv.FirstPublishLocationId = UserInfo.getUserId();
         }
         insert cv;
-        ContentVersion insertedCv=[SELECT 
-                                        Id,ContentDocumentId 
-                                    FROM 
-                                        ContentVersion 
-                                    WHERE 
-                                        Id=:cv.Id 
-                                    LIMIT 1];
-
-        // Link ContentDocument to Order via ContentDocumentLink
-        if(insertedCv.ContentDocumentId!=null && orderId!=null){
-            ContentDocumentLink cdl=new ContentDocumentLink();
-            cdl.ContentDocumentId=insertedCv.ContentDocumentId;
-            cdl.LinkedEntityId=orderId;
-            cdl.ShareType='V'; // Viewer permission
-            cdl.Visibility='AllUsers';
-            insert cdl;
+        // 5) Retrieve ContentDocumentId and ensure explicit link to the Order
+        ContentVersion insertedCv = [
+            SELECT Id, ContentDocumentId
+            FROM ContentVersion
+            WHERE Id = :cv.Id
+            LIMIT 1
+        ];
+        if (insertedCv.ContentDocumentId != null && ord.Id != null) {
+            List<ContentDocumentLink> existingLinks = [
+                SELECT Id
+                FROM ContentDocumentLink
+                WHERE ContentDocumentId = :insertedCv.ContentDocumentId
+                AND LinkedEntityId = :ord.Id
+                LIMIT 1
+            ];
+            if (existingLinks.isEmpty()) {
+                ContentDocumentLink cdl = new ContentDocumentLink();
+                cdl.ContentDocumentId = insertedCv.ContentDocumentId;
+                cdl.LinkedEntityId = ord.Id;
+                cdl.ShareType = 'V';
+                cdl.Visibility = 'AllUsers';
+                insert cdl;
+            }
         }
-        Account accName= [SELECT 
-                            Id,Name
-                        FROM 
-                            Account
-                        WHERE 
-                            Id=:accountId
-                        LIMIT 1];
-    
-        sendPdfToFileService(invoiceFileName,accName!=null?accName.Name : null,pdfBlob);
-        Map<String,Id> out=new Map<String,Id>();
-        out.put('contentVersionId',insertedCv.Id);
-        out.put('contentDocumentId',insertedCv.ContentDocumentId);
+        // 6) Send to external FileService
+        sendPdfToFileService(invoiceFileName, accName != null ? accName.Name : null, pdfBlob);
+        Map<String,Id> out = new Map<String,Id>();
+        out.put('contentVersionId', insertedCv.Id);
+        out.put('contentDocumentId', insertedCv.ContentDocumentId);
         return out;
     }
     public class AccountInfo{

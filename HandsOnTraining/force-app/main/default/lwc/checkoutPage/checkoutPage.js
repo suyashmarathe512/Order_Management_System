@@ -1,5 +1,6 @@
 import{LightningElement,track,api,wire }from 'lwc';
 import createOrderFromCart from '@salesforce/apex/CheckOutController.createOrderFromCart';
+import saveInvoicePdfToAccount from '@salesforce/apex/CheckOutController.saveInvoicePdfToAccount';
 import{ShowToastEvent }from 'lightning/platformShowToastEvent';
 import{NavigationMixin }from 'lightning/navigation';
 import{CurrentPageReference }from 'lightning/navigation';
@@ -105,23 +106,8 @@ export default class CheckoutPage extends NavigationMixin(LightningElement){
     get total(){
         return this.cart.reduce((sum,it)=> sum +((it.price||0) *(it.qty||1)),0);
     }
-    get taxAmount(){
-        return this.total * 0.08;
-    }
-    get totalIncludingTax(){
-        return this.total + this.taxAmount;
-    }
-    get formattedSubtotal(){
-        return this.currencyFormatter(this.total);
-    }
-    get formattedTaxAmount(){
-        return this.currencyFormatter(this.taxAmount);
-    }
-    get formattedTotalIncludingTax(){
-        return this.currencyFormatter(this.totalIncludingTax);
-    }
     get formattedTotal(){
-        return this.currencyFormatter(this.totalIncludingTax);
+        return this.currencyFormatter(this.total);
     }
     get currencyFormatter(){
         return(val)=>{
@@ -260,6 +246,12 @@ export default class CheckoutPage extends NavigationMixin(LightningElement){
             // Cart clean kar rahe – order place ho chuka hai
             sessionStorage.removeItem('cart');
             this.cart=[];
+            // Call saveInvoicePdfToAccount after successful order creation
+            // Note: We don't need to await this as it's fire-and-forget for PDF generation
+            // This will ensure the latest order data is captured in the PDF
+            saveInvoicePdfToAccount()
+                .then(() => console.log('Invoice PDF saved successfully'))
+                .catch(err => console.error('Failed to save invoice PDF:', err));
             // Invoice / PDF handling – tumhara existing flow
             if(res.contentVersionId){
                 const cvId=res.contentVersionId;

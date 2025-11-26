@@ -1,13 +1,8 @@
 public class ContentVersionTriggerHandler {
-
-    // Links newly inserted ContentVersion records to Product2
-    // Product2.Name == ContentVersion.Title (exact match)
-    // Sets Product2.ProductImage_Id__c = ContentDocumentId (069...)
     public static void linkProductImages(List<ContentVersion> newVersions) {
         if (newVersions == null || newVersions.isEmpty()) {
             return;
         }
-
         // Collect all unique titles (used as Product2.Name)
         Set<String> titles = new Set<String>();
         for (ContentVersion cv : newVersions) {
@@ -15,11 +10,9 @@ public class ContentVersionTriggerHandler {
                 titles.add(cv.Title.trim());
             }
         }
-
         if (titles.isEmpty()) {
             return;
         }
-
         // Get all products whose Name matches any of the file titles
         Map<String, Product2> nameToProduct = new Map<String, Product2>();
         for (Product2 p : [
@@ -29,24 +22,18 @@ public class ContentVersionTriggerHandler {
         ]) {
             nameToProduct.put(p.Name, p);
         }
-
         if (nameToProduct.isEmpty()) {
             return;
         }
-
         // Prepare updates: set ProductImage_Id__c = ContentDocumentId
         List<Product2> productsToUpdate = new List<Product2>();
-
         for (ContentVersion cv : newVersions) {
             if (String.isBlank(cv.Title) || cv.ContentDocumentId == null) {
                 continue;
             }
-
             String key = cv.Title.trim();
             Product2 prod = nameToProduct.get(key);
-
             if (prod == null) continue;
-
             // Only update if value is actually different
             String newImageId = String.valueOf(cv.ContentDocumentId);
             if (prod.ProductImage_Id__c != newImageId) {
@@ -54,7 +41,6 @@ public class ContentVersionTriggerHandler {
                 productsToUpdate.add(prod);
             }
         }
-
         if (!productsToUpdate.isEmpty()) {
             update productsToUpdate;
         }

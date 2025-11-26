@@ -27,27 +27,29 @@
         <template if:true={accountName}>
                 <p class="account-name"><strong>Account:</strong> {accountName}</p>
               </template>
-        <div class="pid-search-container">
-            <lightning-input
-              class="pid-search"
-              type="search"
-              placeholder="Search products or SKU"
-              value={searchKey}
-              onchange={onSearchChange}
-              onkeypress={handleSearchKeyPress}>
-            </lightning-input>
+        <div class="pid-search-section">
+          <div class="pid-search-container">
+              <lightning-input
+                class="pid-search"
+                type="search"
+                placeholder="Search products or SKU"
+                value={searchKey}
+                onchange={onSearchChange}
+                onkeypress={handleSearchKeyPress}>
+              </lightning-input>
           </div>
-          <div class="filter-container">
-            <lightning-button-icon
-              class={filterBtnClass}
-              icon-name="utility:filterList"
-              alternative-text="Filters"
-              title="Filters"
-              onclick={openFilterPanel}>
-            </lightning-button-icon>
-            <template if:true={hasActiveFilters}>
-              <div class="filter-indicator"></div>
-            </template>
+            <div class="filter-container">
+              <lightning-button-icon
+                class={filterBtnClass}
+                icon-name="utility:filterList"
+                alternative-text="Filters"
+                title="Filters"
+                onclick={openFilterPanel}>
+              </lightning-button-icon>
+              <template if:true={hasActiveFilters}>
+                <div class="filter-indicator"></div>
+              </template>
+          </div>
         </div>
       </div>
     </div>

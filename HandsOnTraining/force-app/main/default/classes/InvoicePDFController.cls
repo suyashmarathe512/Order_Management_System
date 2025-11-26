@@ -6,8 +6,6 @@
 public with sharing class InvoicePDFController{
     public Order order{get;private set;}
     public List<OrderItem> orderItems{get;private set;}
-    public Decimal subtotal{get;private set;}
-    public Decimal tax{get;private set;}
     public Decimal total{get;private set;}
 /*****************************************************************************
  * @AuthorName:     CRM Team Innovation
@@ -15,21 +13,59 @@ public with sharing class InvoicePDFController{
  * @Description:     This class is used to generate the invoice pdf for the order.
  ***********************************************************************************/
     public InvoicePDFController(){
-        order=[
-            SELECT 
-                Id,Name,CreatedDate,AccountId,
-                BillingStreet,BillingCity,BillingState,BillingPostalCode,BillingCountry,
-                ShippingStreet,ShippingCity,ShippingState,ShippingPostalCode,ShippingCountry,
-                Account.Name
-            FROM 
-                Order
-            WHERE 
-                Status='Activated'
-            ORDER BY
-                CreatedDate DESC
-            LIMIT 1
-        ];
-       Id  orderId=order.Id;
+        // Try to get the Order Id from the page parameter to always render the intended order
+        Id orderIdParam;
+        try{
+            String idStr=ApexPages.currentPage()!=null ? ApexPages.currentPage().getParameters().get('id') : null;
+            if(!String.isBlank(idStr)){
+                orderIdParam=(Id) idStr;
+            }
+        }catch(Exception eCast){
+            orderIdParam=null;
+        }
+        if(orderIdParam != null){
+            // Load the specific Order passed in, ensuring it's accessible
+            List<Order> ords=[
+                SELECT 
+                    Id,Name,CreatedDate,AccountId,
+                    BillingStreet,BillingCity,BillingState,BillingPostalCode,BillingCountry,
+                    ShippingStreet,ShippingCity,ShippingState,ShippingPostalCode,ShippingCountry,
+                    Account.Name
+                FROM 
+                    Order
+                WHERE 
+                    Id=:orderIdParam
+                LIMIT 1
+            ];
+            if(!ords.isEmpty()){
+                order=ords[0];
+            }
+        }
+        // Fallback: previous behavior - latest Activated Order
+        if(order == null){
+            List<Order> latest=[
+                SELECT 
+                    Id,Name,CreatedDate,AccountId,
+                    BillingStreet,BillingCity,BillingState,BillingPostalCode,BillingCountry,
+                    ShippingStreet,ShippingCity,ShippingState,ShippingPostalCode,ShippingCountry,
+                    Account.Name
+                FROM 
+                    Order
+                WHERE 
+                    Status='Activated'
+                ORDER BY
+                    CreatedDate DESC
+                LIMIT 1
+            ];
+            if(!latest.isEmpty()){
+                order=latest[0];
+            }else{
+                initEmpty();
+                return;
+            }
+        }
+        // Load items for the resolved order
+        Id orderId=order.Id;
         orderItems=[
             SELECT 
                 Id,Quantity,UnitPrice,PricebookEntry.Product2.Name
@@ -50,8 +86,6 @@ public with sharing class InvoicePDFController{
     private void initEmpty(){
         order=new Order(Name='Unknown',EffectiveDate=Date.today());
         orderItems=new List<OrderItem>();
-        subtotal=0;
-        tax=8;
         total=0;
 }
 /*****************************************************************************
@@ -60,17 +94,14 @@ public with sharing class InvoicePDFController{
  * @Description:     This method is used to compute the totals for the order.
  ***********************************************************************************/
    private void computeTotals(){
-        subtotal=0;
-        for (OrderItem oi:orderItems){
-            Decimal unit=(oi.UnitPrice == null) ? 0:oi.UnitPrice;
-            Decimal qtyDecimal;
-            if (oi.Quantity == null){
-                qtyDecimal=1;
-        }else{
-            qtyDecimal=Decimal.valueOf(String.valueOf(oi.Quantity));
-        }subtotal += unit * qtyDecimal;
-    }
-        tax= 8;
-        total=subtotal +(subtotal *Tax / 100);
+        total=0;
+        if(orderItems == null){
+            orderItems=new List<OrderItem>();
+        }
+        for (OrderItem oi : orderItems){
+            Decimal unit=(oi.UnitPrice == null) ? 0 : oi.UnitPrice;
+            Decimal qtyDecimal=(oi.Quantity == null) ? 1 : Decimal.valueOf(String.valueOf(oi.Quantity));
+            total += unit * qtyDecimal;
+        }
 }
 }
