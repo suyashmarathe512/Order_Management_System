@@ -848,7 +848,7 @@ private class CheckOutControllerTest {
 
 ---
 
-## 12. Contributing
+## 12.Contributing
 
 ### 12.1 Branch strategy
 
