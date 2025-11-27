@@ -1,6 +1,8 @@
 import{LightningElement,track,api,wire }from 'lwc';
 import createOrderFromCart from '@salesforce/apex/CheckOutController.createOrderFromCart';
 import saveInvoicePdfToAccount from '@salesforce/apex/CheckOutController.saveInvoicePdfToAccount';
+import updateDraftOrder from '@salesforce/apex/CheckOutController.updateDraftOrder';
+import deleteOrderItem from '@salesforce/apex/CheckOutController.deleteOrderItem';
 import{ShowToastEvent }from 'lightning/platformShowToastEvent';
 import{NavigationMixin }from 'lightning/navigation';
 import{CurrentPageReference }from 'lightning/navigation';
@@ -146,7 +148,14 @@ export default class CheckoutPage extends NavigationMixin(LightningElement){
             };
         });
         try{
+            // persist to session
             sessionStorage.setItem('cart',JSON.stringify(this.cart));
+            // notify container to keep quantities in sync
+            this.dispatchEvent(new CustomEvent('cartupdate',{
+                detail:{ cart: this.cart, accountId: this.selectedAccountId },
+                bubbles: true,
+                composed: true
+            }));
         }catch(e){
             console.error('Error saving cart to session storage:',e);
         }
@@ -158,18 +167,49 @@ export default class CheckoutPage extends NavigationMixin(LightningElement){
         if(qty > 9999) qty=9999;
         this.cart=this.cart.map(i=> i.id===id ?{...i,qty}:i);
         try{
+            // persist to session
             sessionStorage.setItem('cart',JSON.stringify(this.cart));
+            // notify container to keep quantities in sync
+            this.dispatchEvent(new CustomEvent('cartupdate',{
+                detail:{ cart: this.cart, accountId: this.selectedAccountId },
+                bubbles: true,
+                composed: true
+            }));
         }catch(e){
             console.error('Error saving cart to session storage:',e);
         }
     }
-    removeLine(evt){
+    async removeLine(evt){
         const id=evt.target.dataset.id;
-        this._cart=this._cart.filter(i=> i.id !==id);
-        try{
-            sessionStorage.setItem('cart',JSON.stringify(this._cart));
-        }catch(e){
-            console.error('Error saving cart to session storage:',e);
+        // Find the item to remove
+        const itemToRemove = this._cart.find(i => i.id === id);
+        if(itemToRemove){
+            try{
+                // If the item has an OrderItem ID (starts with 802), delete it from the database
+                if(itemToRemove.id && itemToRemove.id.length >= 3 && itemToRemove.id.substring(0,3) === '802'){
+                    await deleteOrderItem({orderItemId: itemToRemove.id});
+                }
+                // Remove from local cart
+                this._cart = this._cart.filter(i => i.id !== id);
+                // persist to session
+                sessionStorage.setItem('cart',JSON.stringify(this._cart));
+                // notify container to keep quantities in sync
+                this.dispatchEvent(new CustomEvent('cartupdate',{
+                    detail:{ cart: this._cart, accountId: this.selectedAccountId },
+                    bubbles: true,
+                    composed: true
+                }));  
+            }catch(error){
+                console.error('Error removing item from cart:', error);
+                // Show error toast to user
+                this.dispatchEvent(
+                    new ShowToastEvent({
+                        title:'Error removing item',
+                        message:'Failed to remove item from cart. Please try again.',
+                        variant:'error'
+                    })
+                );
+            }
         }
     }
     // Chhota helper – yaha newline ko safe bana rahe
@@ -239,7 +279,7 @@ export default class CheckoutPage extends NavigationMixin(LightningElement){
             this.dispatchEvent(
                 new ShowToastEvent({
                     title:'Order Created',
-                    message:`Order ${res.orderId}created(${res.lineItemCount}lines)`,
+                    message:`Order ${res.orderId} created (${res.lineItemCount} lines)`,
                     variant:'success'
                 })
             );
@@ -247,38 +287,18 @@ export default class CheckoutPage extends NavigationMixin(LightningElement){
             sessionStorage.removeItem('cart');
             this.cart=[];
             // Call saveInvoicePdfToAccount after successful order creation
-            // Note: We don't need to await this as it's fire-and-forget for PDF generation
-            // This will ensure the latest order data is captured in the PDF
             saveInvoicePdfToAccount()
                 .then(() => console.log('Invoice PDF saved successfully'))
                 .catch(err => console.error('Failed to save invoice PDF:', err));
-            // Invoice / PDF handling – tumhara existing flow
-            if(res.contentVersionId){
-                const cvId=res.contentVersionId;
-                const url=
-                    window.location.origin +
-                    '/sfc/servlet.shepherd/version/download/' +
-                    cvId;
-                window.open(url,'_blank');
-            }else if(res.contentDocumentId){
-                const docId=res.contentDocumentId;
-                const url=
-                    window.location.origin +
-                    '/sfc/servlet.shepherd/document/download?docId=' +
-                    docId;
-                window.open(url,'_blank');
-            }else if(res.orderId){
-                const vfUrl=
-                    window.location.origin +
-                    '/apex/InvoicePdf?id=' +
-                    res.orderId;
-                this[NavigationMixin.Navigate]({
-                    type:'standard__webPage',
-                    attributes:{
-                        url:vfUrl
-                    }
-                });
-            }
+            // Navigate to the newly created Order record's detail page
+            this[NavigationMixin.Navigate]({
+                type: 'standard__recordPage',
+                attributes: {
+                    recordId: res.orderId,
+                    objectApiName: 'Order',
+                    actionName: 'view'
+                }
+            });
         })
         .catch(err=>{
             console.error('Create order error:',err);
@@ -389,7 +409,40 @@ export default class CheckoutPage extends NavigationMixin(LightningElement){
     }
 
     handleBackToPortal(){
-        // Emit event to notify parent component to go back to portal
+        // persist latest cart/qty to session
+        try{
+            sessionStorage.setItem('cart', JSON.stringify(this.cart));
+        }catch(e){
+            // ignore
+        }      // Update the draft order with current cart quantities only
+        if(this.selectedAccountId && this.cart.length > 0){
+            // Prepare parameters for the updateDraftOrder method
+            const orderItemsIds = this.cart.map(item => item.id);
+            const qtys = this.cart.map(item => item.qty);
+            const prices = this.cart.map(item => item.price);
+            // Create isDeleted array - items marked as deleted will have true, others false
+            const isDeleted = this.cart.map(item => item.isDeleted || false);
+            const orderParams = {
+                orderItemsIds: orderItemsIds,
+                qtys: qtys,
+                prices: prices,
+                accountId: this.selectedAccountId,
+                contractId: this.selectedContractId || '',
+                isDeleted: isDeleted
+            };
+            const orderParamsJson = JSON.stringify(orderParams);
+            // Call the updateDraftOrder Apex method to update quantities
+            updateDraftOrder({jsonParams: orderParamsJson})
+                .catch(error => {
+                    console.error('Error updating draft order:', error);
+                });
+        }
+        // Emit both an update and the back event so parent refreshes its state before switching view
+        this.dispatchEvent(new CustomEvent('cartupdate', {
+            detail: { cart: this.cart, accountId: this.selectedAccountId },
+            bubbles: true,
+            composed: true
+        }));
         this.dispatchEvent(new CustomEvent('backtoportal'));
     }
 }

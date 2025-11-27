@@ -312,7 +312,7 @@ export default class ProductInformationDisplay extends NavigationMixin(Lightning
   }
   get cartCount(){
     if (!this.allCartItems) return 0;
-    return this.allCartItems.reduce((total, item) => total + (item.qty||1), 0);
+    return this.allCartItems.length;
 }
   get hasCartItems(){
     return (this.allCartItems||[]).length > 0;

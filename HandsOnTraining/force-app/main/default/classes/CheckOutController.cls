@@ -48,6 +48,7 @@ public with sharing class CheckOutController{
         @AuraEnabled public Id contractId;
         @AuraEnabled public BillingAddress billingAddress;
         @AuraEnabled public ShippingAddress shippingAddress;
+        @AuraEnabled public List<Boolean> isDeleted;
     }
 /************************************************************************************************
  * @Author :      CRM Team Innovation
@@ -680,4 +681,107 @@ public static CreateOrderResult createOrderFromCart(String jsonParams){
         }catch(Exception e){
         }
     }
+    /***************************************************************************** 
+     * @methodName:     updateDraftOrder
+     * @Param orderItemsIds, qtys, prices, accountId, contractId, isDeleted
+     * @description:    Updates the draft order with the current cart items
+     *********************************************************************************/
+    @AuraEnabled
+    public static CreateOrderResult updateDraftOrder(String jsonParams){
+        try{
+            OrderCreationParams params=(OrderCreationParams) JSON.deserialize(jsonParams,OrderCreationParams.class);
+            // Validate parameters
+            if(params==null){
+                throw new AuraHandledException('Order parameters are required.');
+            }
+            // Get the existing draft order for this account
+            List<Order> drafts=[
+                SELECT 
+                    Id, Status, AccountId
+                FROM 
+                    Order
+                WHERE 
+                    AccountId=:params.accountId
+                AND 
+                    Status='Draft'
+                LIMIT 1
+            ];
+            if(drafts.isEmpty()){
+                throw new AuraHandledException('No draft order found for this account.');
+            }
+            Order ord = drafts[0];
+            // Get existing order items for this order
+            List<OrderItem> existingItems=[
+                SELECT 
+                    Id, Quantity, UnitPrice, PricebookEntryId
+                FROM 
+                    OrderItem
+                WHERE 
+                    OrderId=:ord.Id
+            ];
+            // Create a map of existing items by ID for quick lookup
+            Map<Id, OrderItem> existingItemsMap = new Map<Id, OrderItem>();
+            for(OrderItem item : existingItems){
+                existingItemsMap.put(item.Id, item);
+            }
+            // Create lists for items to delete and items to create/update
+            List<Id> itemsToDelete = new List<Id>();
+            List<OrderItem> itemsToUpdate = new List<OrderItem>();
+            Decimal total = 0;
+            // Process each item in the cart
+            for(Integer i=0; i < params.orderItemsIds.size(); i++){
+                String itemId = params.orderItemsIds[i];
+                Integer qty = (params.qtys != null && i < params.qtys.size()) ? params.qtys[i] : 1;
+                Decimal price = (params.prices != null && i < params.prices.size()) ? params.prices[i] : null;
+                Boolean isDelete = (params.isDeleted != null && i < params.isDeleted.size()) ? params.isDeleted[i] : false;
+                // If this item is marked for deletion, add it to delete list
+                if(isDelete){
+                    if(itemId != null && itemId.length() >= 3 && itemId.substring(0,3)=='802'){
+                        // This is an existing OrderItem ID that should be deleted
+                        itemsToDelete.add((Id)itemId);
+                    }
+                    continue; // Skip processing for deletion
+                }
+                // Determine if this is an OrderItem ID (802*) or Product ID (other)
+                if(itemId != null && itemId.length() >= 3 && itemId.substring(0,3)=='802'){
+                    // This is an existing OrderItem ID - update it with new quantity/price
+                    if(existingItemsMap.containsKey((Id)itemId)){
+                        OrderItem existingItem = existingItemsMap.get((Id)itemId);
+                        existingItem.Quantity = qty;
+                        existingItem.UnitPrice = price;
+                        itemsToUpdate.add(existingItem);
+                        if(price != null){
+                            total += price * qty;
+                        }
+                    }
+                }
+            }
+            // Delete items marked for deletion
+            if(!itemsToDelete.isEmpty()){
+                List<OrderItem> itemsToDeleteObj = [SELECT Id FROM OrderItem WHERE Id IN :itemsToDelete];
+                if(!itemsToDeleteObj.isEmpty()){
+                    delete itemsToDeleteObj;
+                }
+            }
+            // Update existing items
+            if(!itemsToUpdate.isEmpty()){
+                update itemsToUpdate;
+            }
+            // Calculate total line items count (existing + new - deleted)
+            Integer lineItemCount = existingItems.size() - itemsToDelete.size();
+            // Create result object
+            CreateOrderResult res=new CreateOrderResult();
+            res.orderId = ord.Id;
+            res.lineItemCount = lineItemCount;
+            res.totalAmount = total;
+            return res;
+        }
+        catch(AuraHandledException ahe){
+            throw ahe;
+        }
+        catch(Exception e){
+            throw e;
+        }
+    }
+  
 }
