@@ -22,6 +22,11 @@
         <span class="price price--loading" title="Fetching price...">Price Unavailable</span>
       </template>
     </div>
+    <div class="quantity-control">
+        <button class="quantity-btn" aria-label="Decrease quantity" onclick={decreaseQuantity}>-</button>
+        <span class="quantity-display" aria-live="polite">{quantity}</span>
+        <button class="quantity-btn" aria-label="Increase quantity" onclick={increaseQuantity}>+</button>
+      </div>
     <div class="action-block">
       <lightning-button 
         label="Add to Cart"

@@ -450,7 +450,7 @@ export default class ProductInformationDisplay extends NavigationMixin(Lightning
     this._optimisticallyAddDraftItem(tempId, prod);
     this.isAddingToCart=true;
     try {
-      await addToOrder({accountId:this.recordId, productId:prod.id, price:prod.price, quantity:1});
+      await addToOrder({accountId:this.recordId, productId:prod.id, price:prod.price, quantity:prod.qty || 1});
       // Important:don't clear optimistic adds until wire brings back server items
       // Just trigger refresh; optimistic items will coexist until server echoes the new item
       this._forceOrdersRefresh();
@@ -563,7 +563,7 @@ export default class ProductInformationDisplay extends NavigationMixin(Lightning
       name:this.modalProduct.name,
       sku:this.modalProduct.sku||this.modalProduct.productCode||null,
       price:this.modalProduct.price,
-      qty:1,
+      qty:this.modalProduct.qty || 1,
       formattedPrice:this.formatCurrency(this.modalProduct.price)
   };
     this.cartItems=[...this.cartItems,item];
@@ -587,7 +587,7 @@ export default class ProductInformationDisplay extends NavigationMixin(Lightning
       name:this.modalProduct.name,
       sku:this.modalProduct.sku||this.modalProduct.productCode||null,
       price:this.modalProduct.price,
-      qty:1,
+      qty:this.modalProduct.qty || 1,
       formattedPrice:this.formatCurrency(this.modalProduct.price)
   };
     this.cartItems=[...this.cartItems,item];
@@ -753,7 +753,7 @@ export default class ProductInformationDisplay extends NavigationMixin(Lightning
   _optimisticallyAddDraftItem(tempId, prod){
     const optimisticRow={
       Id:tempId,
-      Quantity:1,
+      Quantity:prod.qty || 1,
       UnitPrice:prod.price,
       Product2:{ Name:prod.name, ProductCode:prod.sku||prod.productCode||'' }
     };
