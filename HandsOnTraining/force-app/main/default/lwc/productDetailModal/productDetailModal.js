@@ -2,7 +2,7 @@ import{ LightningElement, api }from 'lwc';
 export default class ProductDetailModal extends LightningElement{
     @api product;
     get formattedPrice(){
-        if (!this.product || this.product.price === null || this.product.price === undefined){
+        if (!this.product||this.product.price === null||this.product.price === undefined){
             return '';
         }
         try{

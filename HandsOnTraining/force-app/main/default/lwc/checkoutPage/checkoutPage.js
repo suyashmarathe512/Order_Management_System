@@ -182,15 +182,15 @@ export default class CheckoutPage extends NavigationMixin(LightningElement){
     async removeLine(evt){
         const id=evt.target.dataset.id;
         // Find the item to remove
-        const itemToRemove = this._cart.find(i => i.id === id);
+        const itemToRemove= this._cart.find(i=> i.id=== id);
         if(itemToRemove){
             try{
                 // If the item has an OrderItem ID (starts with 802), delete it from the database
-                if(itemToRemove.id && itemToRemove.id.length >= 3 && itemToRemove.id.substring(0,3) === '802'){
+                if(itemToRemove.id && itemToRemove.id.length >= 3 && itemToRemove.id.substring(0,3)=== '802'){
                     await deleteOrderItem({orderItemId: itemToRemove.id});
                 }
                 // Remove from local cart
-                this._cart = this._cart.filter(i => i.id !== id);
+                this._cart= this._cart.filter(i=> i.id !== id);
                 // persist to session
                 sessionStorage.setItem('cart',JSON.stringify(this._cart));
                 // notify container to keep quantities in sync
@@ -236,8 +236,8 @@ export default class CheckoutPage extends NavigationMixin(LightningElement){
     this.isLoading=true;
     // Yaha dhyaan se:OrderItem Ids bhej rahe hain,Product Ids nahi
     const orderItemsIds=cartArray.map(item=> item.id); // Using item.id which contains OrderItem IDs for draft items or Product IDs for regular items
-    const names =cartArray.map(item=> item.name);
-    const qtys  =cartArray.map(item=> item.qty);
+    const names=cartArray.map(item=> item.name);
+    const qtys =cartArray.map(item=> item.qty);
     const prices=cartArray.map(item=> item.price);
     // Billing address object – Apex BillingAddress wrapper ke fields se match hai
     const billingAddress={
@@ -288,8 +288,8 @@ export default class CheckoutPage extends NavigationMixin(LightningElement){
             this.cart=[];
             // Call saveInvoicePdfToAccount after successful order creation
             saveInvoicePdfToAccount()
-                .then(() => console.log('Invoice PDF saved successfully'))
-                .catch(err => console.error('Failed to save invoice PDF:', err));
+                .then(()=> console.log('Invoice PDF saved successfully'))
+                .catch(err=> console.error('Failed to save invoice PDF:', err));
             // Navigate to the newly created Order record's detail page
             this[NavigationMixin.Navigate]({
                 type: 'standard__recordPage',
@@ -417,12 +417,12 @@ export default class CheckoutPage extends NavigationMixin(LightningElement){
         }      // Update the draft order with current cart quantities only
         if(this.selectedAccountId && this.cart.length > 0){
             // Prepare parameters for the updateDraftOrder method
-            const orderItemsIds = this.cart.map(item => item.id);
-            const qtys = this.cart.map(item => item.qty);
-            const prices = this.cart.map(item => item.price);
+            const orderItemsIds= this.cart.map(item=> item.id);
+            const qtys= this.cart.map(item=> item.qty);
+            const prices= this.cart.map(item=> item.price);
             // Create isDeleted array - items marked as deleted will have true, others false
-            const isDeleted = this.cart.map(item => item.isDeleted || false);
-            const orderParams = {
+            const isDeleted= this.cart.map(item=> item.isDeleted || false);
+            const orderParams= {
                 orderItemsIds: orderItemsIds,
                 qtys: qtys,
                 prices: prices,
@@ -430,10 +430,10 @@ export default class CheckoutPage extends NavigationMixin(LightningElement){
                 contractId: this.selectedContractId || '',
                 isDeleted: isDeleted
             };
-            const orderParamsJson = JSON.stringify(orderParams);
+            const orderParamsJson= JSON.stringify(orderParams);
             // Call the updateDraftOrder Apex method to update quantities
             updateDraftOrder({jsonParams: orderParamsJson})
-                .catch(error => {
+                .catch(error=> {
                     console.error('Error updating draft order:', error);
                 });
         }

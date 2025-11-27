@@ -1,12 +1,12 @@
 /**************************************************************************************************
- * @Author :      CRM Team Innovation
+ * @Author:     CRM Team Innovation
  * @ClassName:    CheckOutController
  * @Description:   This class allowed the POST method to accept the product Id 
  *                 and return the PBE for the product.
  **************************************************************************************************/
 public with sharing class CheckOutController{
 /************************************************************************************************
- * @Author :      CRM Team Innovation
+ * @Author:     CRM Team Innovation
  * @ClassName:    CreateOrderResult
  * @Description:   this wrapper class is used to return the order id,line item count,
  *                     total amount,content version id and content document id.
@@ -51,28 +51,28 @@ public with sharing class CheckOutController{
         @AuraEnabled public List<Boolean> isDeleted;
     }
 /************************************************************************************************
- * @Author :      CRM Team Innovation
+ * @Author:     CRM Team Innovation
  * @MethodName:    createOrderFromCart
- * @params :      orderItemsIds,names,skus,qtys,prices,accountId,contractId,billingStreet,billingCity,
+ * @params:     orderItemsIds,names,skus,qtys,prices,accountId,contractId,billingStreet,billingCity,
  * @Description:   this wrapper class is used to return the order id,line item count,
  *                     total amount,content version id and content document id.
  **************************************************************************************************/
 @AuraEnabled
 public static CreateOrderResult createOrderFromCart(String jsonParams){
     try{
-        OrderCreationParams params=(OrderCreationParams) JSON.deserialize(jsonParams,OrderCreationParams.class);
+        OrderCreationParams params=(OrderCreationParams)JSON.deserialize(jsonParams,OrderCreationParams.class);
         /******************* BASIC VALIDATION *******************/
         if(params==null){
         
             throw new AuraHandledException('Order parameters are required.');
         }
-        /******************* SPLIT IDS: 802* vs PRODUCT2(supports temp_... wrapper) *******************/
-        List<String> rawIdsStr=(params.orderItemsIds==null)?new List<String>() : params.orderItemsIds;
+        /******************* SPLIT IDS: 802* vs PRODUCT2(supports temp_... wrapper)*******************/
+        List<String> rawIdsStr=(params.orderItemsIds==null)?new List<String>():params.orderItemsIds;
         List<Id> orderItemIds=new List<Id>(); // 802*=> OrderItem
         List<Id> product2Ids=new List<Id>(); // baaki=> Product2
         // Maintain a parallel list of "effective" Product2Ids for index-based qty/price mapping
         List<Id> effectiveProduct2IdsByIndex=new List<Id>();
-        for(String s : rawIdsStr){
+        for(String s:rawIdsStr){
             if(String.isBlank(s)){
                 effectiveProduct2IdsByIndex.add(null);
                 continue;
@@ -80,10 +80,10 @@ public static CreateOrderResult createOrderFromCart(String jsonParams){
             // Handle temp_ prefix: expected format "temp_{18charProduct2Id}_<suffix>"
             if(s.startsWith('temp_')){
                 Integer startIdx=5; // length of 'temp_'
-                if(s.length() >= startIdx+18){
+                if(s.length()>= startIdx+18){
                     String maybeId=s.substring(startIdx,startIdx+18);
                     try{
-                        Id parsedId=(Id) maybeId;
+                        Id parsedId=(Id)maybeId;
                         product2Ids.add(parsedId);
                         effectiveProduct2IdsByIndex.add(parsedId);
                         continue;
@@ -95,7 +95,7 @@ public static CreateOrderResult createOrderFromCart(String jsonParams){
                 continue;
             }
             // 802* are OrderItem Ids
-            if(s.length() >= 3 && s.substring(0,3)=='802'){
+            if(s.length()>= 3 && s.substring(0,3)=='802'){
                 try{
                    orderItemIds.add((Id)s);
                 } catch(Exception e802){
@@ -113,7 +113,7 @@ public static CreateOrderResult createOrderFromCart(String jsonParams){
                 }
             }
         }
-        if(orderItemIds.isEmpty() && effectiveProduct2IdsByIndex.isEmpty()){
+        if(orderItemIds.isEmpty()&& effectiveProduct2IdsByIndex.isEmpty()){
         
             throw new AuraHandledException('Your cart is empty. Please add items first.');
         }
@@ -175,7 +175,7 @@ public static CreateOrderResult createOrderFromCart(String jsonParams){
         
             throw new AuraHandledException('Selected account not found or invalid.');
         }
-        /******************* SNAPSHOT FROM ORDERITEM(802*) *******************/
+        /******************* SNAPSHOT FROM ORDERITEM(802*)*******************/
         List<OrderItem> cartItems=new List<OrderItem>();
         if(!orderItemIds.isEmpty()){
             cartItems=[
@@ -188,13 +188,13 @@ public static CreateOrderResult createOrderFromCart(String jsonParams){
             ];
         }
         // Agar na 802 wale mile,na Product2Ids aaye,tabhi cart truly empty hai
-        if(cartItems.isEmpty() && product2Ids.isEmpty()){
+        if(cartItems.isEmpty()&& product2Ids.isEmpty()){
             throw new AuraHandledException('Your cart is empty. Please add items.');
         }
         Map<Id,OrderItem> cartMap=new Map<Id,OrderItem>(cartItems);
         // Pricebook2Id nikalne ki primary try: existing OIs se
         Id pb2Id=null;
-        for(OrderItem oi : cartItems){
+        for(OrderItem oi:cartItems){
             if(oi.PricebookEntryId!=null && pb2Id==null){
                 PricebookEntry pbe=[
                     SELECT 
@@ -221,7 +221,7 @@ public static CreateOrderResult createOrderFromCart(String jsonParams){
                     Id=:params.contractId
                 LIMIT 1
             ];
-            if(!tryCon.isEmpty() && tryCon[0].AccountId==acc.Id){
+            if(!tryCon.isEmpty()&& tryCon[0].AccountId==acc.Id){
                 con=tryCon[0];
             
             } else if(!tryCon.isEmpty()){
@@ -247,7 +247,7 @@ public static CreateOrderResult createOrderFromCart(String jsonParams){
         }
         // Step C: agar phir bhi null – naya Contract DRAFT me bana rahe
         if(con==null){
-            // agar pb2Id abhi null hai(sirf Product2Ids ka case) to yaha handle karna hoga
+            // agar pb2Id abhi null hai(sirf Product2Ids ka case)to yaha handle karna hoga
             if(pb2Id==null){
                 try{
                     Pricebook2 stdPb=[SELECT 
@@ -263,7 +263,7 @@ public static CreateOrderResult createOrderFromCart(String jsonParams){
             }   
             con=new Contract(
                 AccountId  =acc.Id,
-                Status     ='Draft',  // new contract must start Draft
+                Status  ='Draft', // new contract must start Draft
                 StartDate  =Date.today(),
                 Pricebook2Id=pb2Id
             );
@@ -277,7 +277,7 @@ public static CreateOrderResult createOrderFromCart(String jsonParams){
             }
         }
         // Final PB choose karte – Contract se,warna OI/cart/standard se
-        Id finalPB2=(con.Pricebook2Id!=null)?con.Pricebook2Id : pb2Id;
+        Id finalPB2=(con.Pricebook2Id!=null)?con.Pricebook2Id:pb2Id;
         if(finalPB2==null && !product2Ids.isEmpty()){
         
             throw new AuraHandledException('No pricebook is configured to price the selected products.');
@@ -312,40 +312,39 @@ public static CreateOrderResult createOrderFromCart(String jsonParams){
             ord.EffectiveDate=Date.today();
 
             if(params.billingAddress!=null){
-                ord.BillingStreet   =params.billingAddress.street;
-                ord.BillingCity     =params.billingAddress.city;
-                ord.BillingState    =params.billingAddress.state;
+                ord.BillingStreet=params.billingAddress.street;
+                ord.BillingCity  =params.billingAddress.city;
+                ord.BillingState =params.billingAddress.state;
                 ord.BillingPostalCode=params.billingAddress.postalCode;
                 ord.BillingCountry  =params.billingAddress.country;
             }
             if(params.shippingAddress!=null){
-                ord.ShippingStreet   =params.shippingAddress.street;
-                ord.ShippingCity     =params.shippingAddress.city;
-                ord.ShippingState    =params.shippingAddress.state;
+                ord.ShippingStreet=params.shippingAddress.street;
+                ord.ShippingCity  =params.shippingAddress.city;
+                ord.ShippingState =params.shippingAddress.state;
                 ord.ShippingPostalCode=params.shippingAddress.postalCode;
                 ord.ShippingCountry  =params.shippingAddress.country;
             }
-
             update ord;
         } else{
             ord=new Order(
-                AccountId   =acc.Id,
+                AccountId=acc.Id,
                 Pricebook2Id=finalPB2,
                 ContractId  =con.Id,
                 EffectiveDate=Date.today(),
                 Status='Draft'
             );
             if(params.billingAddress!=null){
-                ord.BillingStreet   =params.billingAddress.street;
-                ord.BillingCity     =params.billingAddress.city;
-                ord.BillingState    =params.billingAddress.state;
+                ord.BillingStreet=params.billingAddress.street;
+                ord.BillingCity  =params.billingAddress.city;
+                ord.BillingState =params.billingAddress.state;
                 ord.BillingPostalCode=params.billingAddress.postalCode;
                 ord.BillingCountry  =params.billingAddress.country;
             }
             if(params.shippingAddress!=null){
-                ord.ShippingStreet   =params.shippingAddress.street;
-                ord.ShippingCity     =params.shippingAddress.city;
-                ord.ShippingState    =params.shippingAddress.state;
+                ord.ShippingStreet=params.shippingAddress.street;
+                ord.ShippingCity  =params.shippingAddress.city;
+                ord.ShippingState =params.shippingAddress.state;
                 ord.ShippingPostalCode=params.shippingAddress.postalCode;
                 ord.ShippingCountry  =params.shippingAddress.country;
             }
@@ -366,7 +365,7 @@ public static CreateOrderResult createOrderFromCart(String jsonParams){
                 AND 
                     IsActive=true
             ];
-            for(PricebookEntry pe : pbes){
+            for(PricebookEntry pe:pbes){
                 pbeByProduct.put(pe.Product2Id,pe);
             }
         
@@ -374,9 +373,9 @@ public static CreateOrderResult createOrderFromCart(String jsonParams){
         /******************* CREATE ORDER ITEMS *******************/
         List<OrderItem> newItems=new List<OrderItem>();
         Decimal total=0;
-        // 1) Clone existing 802* OrderItems(cartItems)
-        for(OrderItem baseOi : cartItems){
-            if(baseOi==null) continue;
+        // 1)Clone existing 802* OrderItems(cartItems)
+        for(OrderItem baseOi:cartItems){
+            if(baseOi==null)continue;
             OrderItem newOi=new OrderItem(
                 OrderId =ord.Id,
                 PricebookEntryId=baseOi.PricebookEntryId,
@@ -388,16 +387,16 @@ public static CreateOrderResult createOrderFromCart(String jsonParams){
                 total += baseOi.UnitPrice * baseOi.Quantity;
             }
         }
-        // 2) New lines from Product2Ids using qtys/prices from params(index-based mapping,supports temp_ ids)
-        for(Integer i=0; i < rawIdsStr.size(); i++){
+        // 2)New lines from Product2Ids using qtys/prices from params(index-based mapping,supports temp_ ids)
+        for(Integer i=0; i<rawIdsStr.size(); i++){
             String s=rawIdsStr[i];
-            if(String.isBlank(s)) continue;
+            if(String.isBlank(s))continue;
             // Skip existing OrderItem ids(802*)
-            if(s.length() >= 3 && s.substring(0,3)=='802'){
+            if(s.length()>= 3 && s.substring(0,3)=='802'){
                 continue;
             }
             // Resolve effective Product2Id for this index:
-            Id productId=(i < effectiveProduct2IdsByIndex.size())?effectiveProduct2IdsByIndex[i] : null;
+            Id productId=(i<effectiveProduct2IdsByIndex.size())?effectiveProduct2IdsByIndex[i]:null;
             if(productId==null){
                 // Try parsing from raw when not temp_ and not 802
                 try{
@@ -411,8 +410,8 @@ public static CreateOrderResult createOrderFromCart(String jsonParams){
             if(pe==null){
                 continue; // agar pricebook-entry hi nahi hai to skip kar rahe
             }
-            Integer qty =(params.qtys  !=null && i < params.qtys.size())?params.qtys[i]   : 1;
-            Decimal price=(params.prices!=null && i < params.prices.size())?params.prices[i] : null;
+            Integer qty =(params.qtys  !=null && i<params.qtys.size())?params.qtys[i]  :1;
+            Decimal price=(params.prices!=null && i<params.prices.size())?params.prices[i]:null;
             // Ensure UnitPrice is set - either from params or from PricebookEntry
             Decimal finalPrice=price;
             if(finalPrice==null && pe!=null){
@@ -447,7 +446,7 @@ public static CreateOrderResult createOrderFromCart(String jsonParams){
            throw new AuraHandledException('No order lines could be created from the cart.');
         }
         insert newItems;
-/******************* ACTIVATE ORDER(IF CONTRACT ACTIVATED) *******************/
+/******************* ACTIVATE ORDER(IF CONTRACT ACTIVATED)*******************/
 // Update the contract status to Activated before activating the order
         try{
             if(con.Status!='Activated'){
@@ -462,7 +461,7 @@ public static CreateOrderResult createOrderFromCart(String jsonParams){
         }
         /******************* BUILD RESULT *******************/
         CreateOrderResult res=new CreateOrderResult();
-        res.orderId     =ord.Id;
+        res.orderId  =ord.Id;
         res.lineItemCount=newItems.size();
         res.totalAmount =total;
         return res;
@@ -475,90 +474,104 @@ public static CreateOrderResult createOrderFromCart(String jsonParams){
     }
 }
 /************************************************************************************************
- * @Author :      CRM Team Innovation
+ * @Author:     CRM Team Innovation
  * @ClassName:    saveInvoicePdfToAccount
  * @Description:   Isolated method. Query the most recent Activated Order (post-commit),
- *                 render its invoice as PDF, save to Files, link to Account and Order,
+ *                 render its invoice as PDF,save to Files,link to Account and Order,
  *                 and send the same PDF to the external FileService. Takes no parameters.
  **************************************************************************************************/
  @AuraEnabled   
  public static Map<String,Id> saveInvoicePdfToAccount(){
-        // 1) Find the most recent Activated Order
-        List<Order> latestOrders = [
-            SELECT Id, Name, EffectiveDate, AccountId
-            FROM Order
-            WHERE Status = 'Activated'
-            ORDER BY CreatedDate DESC
+        // 1)Find the most recent Activated Order
+        List<Order> latestOrders=[
+            SELECT 
+                Id,Name,EffectiveDate,AccountId
+            FROM 
+                Order
+            WHERE 
+                Status='Activated'
+            ORDER BY 
+                CreatedDate DESC
             LIMIT 1
         ];
         if(latestOrders.isEmpty()){
             return null;
         }
-        Order ord = latestOrders[0];
-        // 2) Load Account Name if available (for external FileService)
-        Account accName = null;
+        Order ord=latestOrders[0];
+        // 2)Load Account Name if available (for external FileService)
+        Account accName=null;
         if(ord.AccountId != null){
-            List<Account> accs = [
-                SELECT Id, Name
-                FROM Account
-                WHERE Id = :ord.AccountId
+            List<Account> accs=[
+                SELECT 
+                    Id,Name
+                FROM 
+                    Account
+                WHERE 
+                    Id=:ord.AccountId
                 LIMIT 1
             ];
             if(!accs.isEmpty()){
-                accName = accs[0];
+                accName=accs[0];
             }
         }
-        // 3) Build filename and render the VF as PDF for the specific Order Id
-        String invoiceFileName = (ord.Name != null ? ord.Name : 'Invoice') + '_' +
-                                 (ord.EffectiveDate != null ? String.valueOf(ord.EffectiveDate) : '') + '.pdf';
-        PageReference pr = Page.InvoicePdf;
-        pr.getParameters().put('id', String.valueOf(ord.Id));
+        // 3)Build filename and render the VF as PDF for the specific Order Id
+        String invoiceFileName=(ord.Name != null ? ord.Name:'Invoice')+'_' +
+                                 (ord.EffectiveDate != null ? String.valueOf(ord.EffectiveDate):'')+'.pdf';
+        PageReference pr=Page.InvoicePdf;
+        pr.getParameters().put('id',String.valueOf(ord.Id));
         Blob pdfBlob;
         try{
-            pdfBlob = pr.getContentAsPDF();
+            pdfBlob=pr.getContentAsPDF();
         }catch(VisualforceException vfEx){
-            throw new AuraHandledException('Failed to render PDF: ' + vfEx.getMessage());
+            throw new AuraHandledException('Failed to render PDF: '+vfEx.getMessage());
         }
-        // 4) Save to Files: publish to Account when available; else to current user
-        ContentVersion cv = new ContentVersion();
-        cv.Title = invoiceFileName.replace('.pdf','');
-        cv.PathOnClient = '/' + invoiceFileName;
-        cv.VersionData = pdfBlob;
-        if (ord.AccountId != null) {
-            cv.FirstPublishLocationId = ord.AccountId;
+        // 4)Save to Files: publish to Account when available; else to current user
+        ContentVersion cv=new ContentVersion();
+        cv.Title=invoiceFileName.replace('.pdf','');
+        cv.PathOnClient='/'+invoiceFileName;
+        cv.VersionData=pdfBlob;
+        if (ord.AccountId != null){
+            cv.FirstPublishLocationId=ord.AccountId;
         } else {
-            cv.FirstPublishLocationId = UserInfo.getUserId();
+            cv.FirstPublishLocationId=UserInfo.getUserId();
         }
         insert cv;
-        // 5) Retrieve ContentDocumentId and ensure explicit link to the Order
-        ContentVersion insertedCv = [
-            SELECT Id, ContentDocumentId
-            FROM ContentVersion
-            WHERE Id = :cv.Id
+        // 5)Retrieve ContentDocumentId and ensure explicit link to the Order
+        ContentVersion insertedCv=[
+            SELECT 
+                Id,ContentDocumentId
+            FROM 
+                ContentVersion
+            WHERE 
+                Id=:cv.Id
             LIMIT 1
         ];
-        if (insertedCv.ContentDocumentId != null && ord.Id != null) {
-            List<ContentDocumentLink> existingLinks = [
-                SELECT Id
-                FROM ContentDocumentLink
-                WHERE ContentDocumentId = :insertedCv.ContentDocumentId
-                AND LinkedEntityId = :ord.Id
+        if (insertedCv.ContentDocumentId != null && ord.Id != null){
+            List<ContentDocumentLink> existingLinks=[
+                SELECT 
+                    Id
+                FROM 
+                    ContentDocumentLink
+                WHERE 
+                    ContentDocumentId=:insertedCv.ContentDocumentId
+                AND 
+                    LinkedEntityId=:ord.Id
                 LIMIT 1
             ];
-            if (existingLinks.isEmpty()) {
-                ContentDocumentLink cdl = new ContentDocumentLink();
-                cdl.ContentDocumentId = insertedCv.ContentDocumentId;
-                cdl.LinkedEntityId = ord.Id;
-                cdl.ShareType = 'V';
-                cdl.Visibility = 'AllUsers';
+            if (existingLinks.isEmpty()){
+                ContentDocumentLink cdl=new ContentDocumentLink();
+                cdl.ContentDocumentId=insertedCv.ContentDocumentId;
+                cdl.LinkedEntityId=ord.Id;
+                cdl.ShareType='V';
+                cdl.Visibility='AllUsers';
                 insert cdl;
             }
         }
-        // 6) Send to external FileService
-        sendPdfToFileService(invoiceFileName, accName != null ? accName.Name : null, pdfBlob);
-        Map<String,Id> out = new Map<String,Id>();
-        out.put('contentVersionId', insertedCv.Id);
-        out.put('contentDocumentId', insertedCv.ContentDocumentId);
+        // 6)Send to external FileService
+        sendPdfToFileService(invoiceFileName,accName != null ? accName.Name:null,pdfBlob);
+        Map<String,Id> out=new Map<String,Id>();
+        out.put('contentVersionId',insertedCv.Id);
+        out.put('contentDocumentId',insertedCv.ContentDocumentId);
         return out;
     }
     public class AccountInfo{
@@ -609,7 +622,7 @@ public static CreateOrderResult createOrderFromCart(String jsonParams){
 /*******************************************************************************************
  * @AuthorName:    CRM Team Innovation
  * @MethodName:     sendPdfToFileService
- * @params :        orderId,fileName
+ * @params:       orderId,fileName
  * @Description:    this method is used to send the invoice pdf to the file service.
  ********************************************************************************************/
     @AuraEnabled
@@ -683,13 +696,13 @@ public static CreateOrderResult createOrderFromCart(String jsonParams){
     }
     /***************************************************************************** 
      * @methodName:     updateDraftOrder
-     * @Param orderItemsIds, qtys, prices, accountId, contractId, isDeleted
+     * @Param orderItemsIds,qtys,prices,accountId,contractId,isDeleted
      * @description:    Updates the draft order with the current cart items
      *********************************************************************************/
     @AuraEnabled
     public static CreateOrderResult updateDraftOrder(String jsonParams){
         try{
-            OrderCreationParams params=(OrderCreationParams) JSON.deserialize(jsonParams,OrderCreationParams.class);
+            OrderCreationParams params=(OrderCreationParams)JSON.deserialize(jsonParams,OrderCreationParams.class);
             // Validate parameters
             if(params==null){
                 throw new AuraHandledException('Order parameters are required.');
@@ -697,7 +710,7 @@ public static CreateOrderResult createOrderFromCart(String jsonParams){
             // Get the existing draft order for this account
             List<Order> drafts=[
                 SELECT 
-                    Id, Status, AccountId
+                    Id,Status,AccountId
                 FROM 
                     Order
                 WHERE 
@@ -709,46 +722,46 @@ public static CreateOrderResult createOrderFromCart(String jsonParams){
             if(drafts.isEmpty()){
                 throw new AuraHandledException('No draft order found for this account.');
             }
-            Order ord = drafts[0];
+            Order ord=drafts[0];
             // Get existing order items for this order
             List<OrderItem> existingItems=[
                 SELECT 
-                    Id, Quantity, UnitPrice, PricebookEntryId
+                    Id,Quantity,UnitPrice,PricebookEntryId
                 FROM 
                     OrderItem
                 WHERE 
                     OrderId=:ord.Id
             ];
             // Create a map of existing items by ID for quick lookup
-            Map<Id, OrderItem> existingItemsMap = new Map<Id, OrderItem>();
-            for(OrderItem item : existingItems){
-                existingItemsMap.put(item.Id, item);
+            Map<Id,OrderItem> existingItemsMap=new Map<Id,OrderItem>();
+            for(OrderItem item:existingItems){
+                existingItemsMap.put(item.Id,item);
             }
             // Create lists for items to delete and items to create/update
-            List<Id> itemsToDelete = new List<Id>();
-            List<OrderItem> itemsToUpdate = new List<OrderItem>();
-            Decimal total = 0;
+            List<Id> itemsToDelete=new List<Id>();
+            List<OrderItem> itemsToUpdate=new List<OrderItem>();
+            Decimal total=0;
             // Process each item in the cart
-            for(Integer i=0; i < params.orderItemsIds.size(); i++){
-                String itemId = params.orderItemsIds[i];
-                Integer qty = (params.qtys != null && i < params.qtys.size()) ? params.qtys[i] : 1;
-                Decimal price = (params.prices != null && i < params.prices.size()) ? params.prices[i] : null;
-                Boolean isDelete = (params.isDeleted != null && i < params.isDeleted.size()) ? params.isDeleted[i] : false;
-                // If this item is marked for deletion, add it to delete list
+            for(Integer i=0; i<params.orderItemsIds.size(); i++){
+                String itemId=params.orderItemsIds[i];
+                Integer qty=(params.qtys != null && i<params.qtys.size())? params.qtys[i]:1;
+                Decimal price=(params.prices != null && i<params.prices.size())? params.prices[i]:null;
+                Boolean isDelete=(params.isDeleted != null && i<params.isDeleted.size())? params.isDeleted[i]:false;
+                // If this item is marked for deletion,add it to delete list
                 if(isDelete){
-                    if(itemId != null && itemId.length() >= 3 && itemId.substring(0,3)=='802'){
+                    if(itemId != null && itemId.length()>= 3 && itemId.substring(0,3)=='802'){
                         // This is an existing OrderItem ID that should be deleted
                         itemsToDelete.add((Id)itemId);
                     }
                     continue; // Skip processing for deletion
                 }
-                // Determine if this is an OrderItem ID (802*) or Product ID (other)
-                if(itemId != null && itemId.length() >= 3 && itemId.substring(0,3)=='802'){
+                // Determine if this is an OrderItem ID (802*)or Product ID (other)
+                if(itemId != null && itemId.length()>= 3 && itemId.substring(0,3)=='802'){
                     // This is an existing OrderItem ID - update it with new quantity/price
                     if(existingItemsMap.containsKey((Id)itemId)){
-                        OrderItem existingItem = existingItemsMap.get((Id)itemId);
-                        existingItem.Quantity = qty;
-                        existingItem.UnitPrice = price;
+                        OrderItem existingItem=existingItemsMap.get((Id)itemId);
+                        existingItem.Quantity=qty;
+                        existingItem.UnitPrice=price;
                         itemsToUpdate.add(existingItem);
                         if(price != null){
                             total += price * qty;
@@ -758,7 +771,13 @@ public static CreateOrderResult createOrderFromCart(String jsonParams){
             }
             // Delete items marked for deletion
             if(!itemsToDelete.isEmpty()){
-                List<OrderItem> itemsToDeleteObj = [SELECT Id FROM OrderItem WHERE Id IN :itemsToDelete];
+                List<OrderItem> itemsToDeleteObj=[SELECT 
+                                                        Id 
+                                                    FROM 
+                                                        OrderItem 
+                                                    WHERE 
+                                                        Id 
+                                                    IN :itemsToDelete];
                 if(!itemsToDeleteObj.isEmpty()){
                     delete itemsToDeleteObj;
                 }
@@ -767,13 +786,13 @@ public static CreateOrderResult createOrderFromCart(String jsonParams){
             if(!itemsToUpdate.isEmpty()){
                 update itemsToUpdate;
             }
-            // Calculate total line items count (existing + new - deleted)
-            Integer lineItemCount = existingItems.size() - itemsToDelete.size();
+            // Calculate total line items count (existing+new - deleted)
+            Integer lineItemCount=existingItems.size()- itemsToDelete.size();
             // Create result object
             CreateOrderResult res=new CreateOrderResult();
-            res.orderId = ord.Id;
-            res.lineItemCount = lineItemCount;
-            res.totalAmount = total;
+            res.orderId=ord.Id;
+            res.lineItemCount=lineItemCount;
+            res.totalAmount=total;
             return res;
         }
         catch(AuraHandledException ahe){
