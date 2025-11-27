@@ -3,9 +3,9 @@
 Version: 1.0.0
 Last Updated: November 27, 2025
 
-## Table of Contents
+## Table of Contents 
 
-1. [System Overview](#1-system-overview)
+1. [System Overview](#1-system-overview) (Checkout Images for UI)
 2. [Architecture and Data Flow](#2-architecture-and-data-flow)
 
    * [Product Synchronization](#21-product-synchronization-server--client-org)
