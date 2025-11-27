@@ -10,8 +10,8 @@
     height: 116px;
 }
 .cart-icon{ 
-    width: 21%;
-    height: 7%;
+      width: 20%;
+    height: 28%;
     padding: 29px 0px 0px;
     fill: #072048;
     align-items: flex-end;
@@ -27,7 +27,7 @@
 }
 /* Top row - title and cart */
 .pid-header-top{
-            display: flex;
+    display: flex;
     align-items: center;
     justify-content: space-between;
     flex: 1 0 30%;
@@ -35,6 +35,12 @@
     flex-direction: row;
     width: 100%;
     flex-wrap: nowrap;
+    padding: 1% 0% 0%;
+}
+.pid-left{
+       display: flex;
+    align-items: flex-end;
+    gap: 10px;
 }
 .pid-brand{
            padding: 11px 0px 0px;
@@ -44,9 +50,10 @@
     padding-right: 33px;
 }
 .pid-title{
-       font-weight: 400;
-    font-size: 2.45rem;
+          font-weight: bold;
+    font-size: 2.05rem;
     color: #072048;
+    font-family: sans-serif;
 }
 .account-name {
         margin-top: -3px;
@@ -112,8 +119,8 @@
 }
 .filter-indicator{
    position: absolute;
-    top: -5px;
-    right: 12px;
+   top: 23%;
+    right: 8%;
     width: 14px;
     height: 14px;
     background-color: #ff5a5f;

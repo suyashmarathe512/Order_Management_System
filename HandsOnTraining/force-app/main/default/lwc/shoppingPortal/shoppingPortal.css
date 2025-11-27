@@ -1,12 +1,12 @@
 .shopping-portal {
-    width: 100vw;
-    height: 100vh;
+    width: 97vw;
+    height: 85vh;
     overflow: auto;
     position: relative;
 }
 
 .main-content {
-    width: 97%;
+        width: 100%;
     height: 100%;
     overflow: hidden;
 }
@@ -21,4 +21,3 @@ c-checkout-page {
     padding: 1rem;
     box-sizing: border-box;
 }
-

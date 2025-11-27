@@ -152,6 +152,17 @@
     padding-right: 122px;
     padding-bottom: 4px;
 }
+:host {
+    -ms-overflow-style: none; 
+    scrollbar-width: none;     
+}
+:host {
+    overflow: hidden;
+    overscroll-behavior: contain;
+}
+:host::-webkit-scrollbar {
+    display: none;
+}
 .button-group {
   display: flex;
   gap: 12px;

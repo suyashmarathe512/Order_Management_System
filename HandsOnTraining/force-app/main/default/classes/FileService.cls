@@ -6,7 +6,6 @@
  ******************************************************************************************/
 @RestResource(urlMapping='/fileservice/*')
 global class FileService{
-    private static final String LOG_PREFIX='[FileService] ';
 /***************************************************************************************
  * @Author:     CRM Team Innovation
  * @MethodName:   recieveFile
@@ -25,20 +24,19 @@ global class FileService{
             fileNameParam   =queryParams.containsKey('fileName')?queryParams.get('fileName'):'';
         }
         Id firstPublishLocationId=null;
-        if(accountNameParam != null && accountNameParam != ''){   
-            try{
-                Id accountIdParam=[SELECT 
-                                        Id 
-                                    FROM 
-                                        Account 
-                                    WHERE 
-                                        Name=:accountNameParam 
+        if(accountNameParam != null && accountNameParam != ''){
+                Id accountIdParam=[SELECT
+                                        Id
+                                    FROM
+                                        Account
+                                    WHERE
+                                        Name=:accountNameParam
                                     LIMIT 1].Id;
                 firstPublishLocationId=(Id)accountIdParam;
-            }catch(Exception e){
-                
-                firstPublishLocationId=null;
-            }
+        }else{
+            Account newAcc = new Account(Name = accountNameParam);
+            insert newAcc;
+            firstPublishLocationId = newAcc.Id;
         }
         if(fileBlob != null && fileBlob.size() > 0){
             ContentVersion contentVersion=new ContentVersion();
