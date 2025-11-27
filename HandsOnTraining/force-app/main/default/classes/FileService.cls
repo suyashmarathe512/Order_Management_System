@@ -23,20 +23,26 @@ global class FileService{
             accountNameParam=queryParams.containsKey('accountName')?queryParams.get('accountName'):'';
             fileNameParam   =queryParams.containsKey('fileName')?queryParams.get('fileName'):'';
         }
-        Id firstPublishLocationId=null;
-        if(accountNameParam != null && accountNameParam != ''){
-                Id accountIdParam=[SELECT
-                                        Id
-                                    FROM
-                                        Account
-                                    WHERE
-                                        Name=:accountNameParam
-                                    LIMIT 1].Id;
-                firstPublishLocationId=(Id)accountIdParam;
-        }else{
-            Account newAcc = new Account(Name = accountNameParam);
-            insert newAcc;
-            firstPublishLocationId = newAcc.Id;
+        Id firstPublishLocationId = UserInfo.getUserId(); // Default to current user
+        if(accountNameParam != null && accountNameParam.trim() != ''){
+            List<Account> accs = [SELECT 
+                                    Id 
+                                FROM 
+                                    Account 
+                                WHERE 
+                                    Name = :accountNameParam 
+                                LIMIT 1];
+            if(!accs.isEmpty()){
+                firstPublishLocationId = accs[0].Id;
+            }else{
+                try{
+                    Account newAcc = new Account(Name = accountNameParam);
+                    insert newAcc;
+                    firstPublishLocationId = newAcc.Id;
+                }catch(DmlException e){
+                    // On failure, keep as user
+                }
+            }
         }
         if(fileBlob != null && fileBlob.size() > 0){
             ContentVersion contentVersion=new ContentVersion();
@@ -57,12 +63,7 @@ global class FileService{
             contentVersion.PathOnClient=pathName;
             contentVersion.VersionData=fileBlob;
             contentVersion.ContentLocation='S';
-            if(firstPublishLocationId != null){
-                contentVersion.FirstPublishLocationId=firstPublishLocationId;
-            }else{
-                // Fallback to current user
-                contentVersion.FirstPublishLocationId=UserInfo.getUserId();   
-            }
+            contentVersion.FirstPublishLocationId = firstPublishLocationId;
             try{
                 insert contentVersion;
                 RestContext.response.responseBody=Blob.valueOf('{"status":"success", "contentVersionId":"'+contentVersion.Id+'"}');
