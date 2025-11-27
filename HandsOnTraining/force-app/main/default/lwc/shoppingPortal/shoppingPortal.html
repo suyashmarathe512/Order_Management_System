@@ -1,0 +1,21 @@
+<template>
+    <div class="shopping-portal">
+        <!-- Main content area -->
+        <template if:false={showCheckoutPage}>
+            <div class="main-content">
+                <c-product-information-display
+                    oncartupdate={handleCartUpdate}
+                    oncheckout={handleCheckout}>
+                </c-product-information-display>
+            </div>
+        </template>
+
+        <!-- Checkout Page (shown when checkout is triggered) -->
+        <template if:true={showCheckoutPage}>
+            <c-checkout-page
+                cart={cartItems}
+                onbacktoportal={handleBackToPortal}>
+            </c-checkout-page>
+        </template>
+    </div>
+</template>

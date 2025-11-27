@@ -387,4 +387,9 @@ export default class CheckoutPage extends NavigationMixin(LightningElement){
         event.returnValue='Are you sure you want to refresh? Your cart and entered information will be lost.';
         return event.returnValue;
     }
+
+    handleBackToPortal(){
+        // Emit event to notify parent component to go back to portal
+        this.dispatchEvent(new CustomEvent('backtoportal'));
+    }
 }

@@ -655,17 +655,27 @@ export default class ProductInformationDisplay extends NavigationMixin(Lightning
   }catch (e){
       console.error('sessionStorage set failed',e); // Kuch browsers me storage tight ho sakti — log karke nikal lo
   }
-    this.dispatchEvent(new CustomEvent('cartupdate',{detail:{cart:cartWithAccountId}}));
-    this[NavigationMixin.Navigate]({
-      type:'standard__navItemPage',
-      attributes:{
-        apiName:'Checkout_Page'
-    },
-      state:{
-        accountId:this.recordId,
-        fromPid:'1'
-    }
-  });
+    // Emit custom event to notify parent component about checkout
+    // Make sure the event crosses shadow boundaries
+    const checkoutEvent = new CustomEvent('checkout', {
+      detail: { cart: cartWithAccountId, accountId: this.recordId },
+      bubbles: true,
+      composed: true,
+      cancelable: true
+    });
+    this.dispatchEvent(checkoutEvent);
+    // Don't navigate away - let parent component handle it
+    // this.dispatchEvent(new CustomEvent('cartupdate',{detail:{cart:cartWithAccountId}}));
+    // this[NavigationMixin.Navigate]({
+    //   type:'standard__navItemPage',
+    //   attributes:{
+    //     apiName:'Checkout_Page'
+    // },
+    //   state:{
+    //     accountId:this.recordId,
+    //     fromPid:'1'
+    // }
+    // });
 }
   // Filters + utils — yaha UX polish baithti hai
   async openFilterPanel(){

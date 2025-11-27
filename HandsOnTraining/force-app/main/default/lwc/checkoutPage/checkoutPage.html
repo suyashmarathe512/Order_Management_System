@@ -16,6 +16,10 @@
         </div>
       </div>
     </div>
+    <!-- Back button to return to shopping portal -->
+    <div class="slds-m-bottom_medium">
+      <lightning-button label="Back to Shopping Portal" variant="neutral" onclick={handleBackToPortal}></lightning-button>
+    </div>
     <template if:true={cart.length}>
       <div class="slds-section slds-is-open">
         <div class="slds-section__content">
@@ -176,7 +180,7 @@
               </div>
             </div>
           </div>
-           <div class="slds-m-top_medium" style="align-items: center; text-align: center; justify-content: center; display: flex; padding-bottom: 8px;">
+           <div class="slds-m-top_medium" style="align-items: flex-end;text-align: end;ju;justify-content: flex-end;padding: 0px 19px  16px;margin-top: 2%;">
           <lightning-button 
             label="Place Order" 
             variant="brand" 
