@@ -38,6 +38,8 @@ This is an e-commerce Order Management System built on Salesforce DX. It support
 * Checkout with account, contract, and pricebook logic
 * PDF invoice generation and file storage
 * Bi-directional REST API integrations
+* Currency conversion using external API
+* Timezone conversion for localized time display
 
 **Main technologies:**
 
@@ -451,6 +453,8 @@ HandsOnTraining/
 │  │  ├─ ProductService.cls
 │  │  ├─ ProductPBEServices.cls
 │  │  ├─ FileService.cls
+│  │  ├─ CurrencyConverterService.cls
+│  │  ├─ TimezoneConverterService.cls
 │  │  └─ ContentVersionTriggerHandler.cls
 │  ├─ lwc/
 │  │  ├─ shoppingPortal/
@@ -880,10 +884,96 @@ This project is internal to CRM Team Innovation.
 
 ---
 
-## 14. Version History
+## 14. New Features
+
+This section describes the latest features added to the Order Management System.
+
+### 14.1 Currency Conversion Service
+
+The `CurrencyConverterService` class provides real-time currency conversion using the ExchangeRate-API. It supports conversion between various currencies based on live exchange rates.
+
+**Key Features:**
+
+* Converts amounts from one currency to another using external API.
+* Supports country-based currency mapping (e.g., USA → USD, INDIA → INR).
+* Aura-enabled methods for Lightning Web Components integration.
+* Custom exception handling for invalid currencies or API failures.
+
+**Supported Countries and Currencies:**
+
+```apex
+public static final Map<String, String> COUNTRY_TO_CURRENCY = new Map<String, String>{
+    'INDIA' => 'INR',
+    'USA' => 'USD',
+    'UNITED STATES' => 'USD',
+    'UNITED KINGDOM' => 'GBP',
+    'JAPAN' => 'JPY',
+    'CANADA' => 'CAD',
+    'AUSTRALIA' => 'AUD',
+    'GERMANY' => 'EUR',
+    'FRANCE' => 'EUR'
+};
+```
+
+**Usage Examples:**
+
+Convert by country:
+
+```apex
+Decimal convertedAmount = CurrencyConverterService.convertByCountry(100.00, 'USD', 'INDIA');
+// Result: 100 USD converted to INR
+```
+
+Direct currency conversion:
+
+```apex
+Decimal convertedAmount = CurrencyConverterService.convert(100.00, 'USD', 'EUR');
+// Result: 100 USD converted to EUR
+```
+
+Aura-enabled method for LWC:
+
+```apex
+Decimal convertedAmount = CurrencyConverterService.convertByCountryAura(100.00, 'USD', 'INDIA');
+```
+
+### 14.2 Timezone Conversion Service
+
+The `TimezoneConverterService` class provides timezone conversion for displaying localized time strings based on country names.
+
+**Key Features:**
+
+* Converts UTC DateTime to local time strings.
+* Supports multiple countries with appropriate timezone mappings.
+* Formats output as 'MM-dd-yyyy HH:mm a z' (e.g., 11-27-2025 03:45 PM EST).
+* Defaults to Asia/Kolkata for unsupported countries.
+
+**Supported Countries and Timezones:**
+
+* USA, UNITED STATES → America/New_York
+* UK, UNITED KINGDOM → Europe/London
+* JAPAN → Asia/Tokyo
+* AUSTRALIA → Australia/Sydney
+* CANADA → America/Toronto
+* GERMANY → Europe/Berlin
+* FRANCE → Europe/Paris
+* Default → Asia/Kolkata
+
+**Usage Example:**
+
+```apex
+DateTime utcTime = DateTime.now();
+String localTime = TimezoneConverterService.convertToLocalTimeString(utcTime, 'USA');
+// Result: Localized time string for New York timezone
+```
+
+---
+
+## 15. Version History
 
 | Version | Date       | Changes                             |
 | ------- | ---------- | ----------------------------------- |
+| 1.1.0   | 2025-11-27 | Added currency and timezone conversion services |
 | 1.0.0   | 2025-11-27 | Initial comprehensive documentation |
 | 0.9.0   | 2025-11-XX | Beta release with core features     |
 | 0.1.0   | 2025-XX-XX | Project initialization              |
