@@ -41,34 +41,37 @@
                         <th>#</th>
                         <th>Product</th>
                         <th class="right">Unit Price (INR)</th>
+                        <th class="right">Unit Price ({!targetCurrency})</th>
                         <th class="right">Qty</th>
                         <th class="right">Line Total (INR)</th>
+                        <th class="right">Line Total ({!targetCurrency})</th>
                     </tr>
                 </thead>
                 <tbody>
                     <apex:variable var="idx" value="{!0}" />
-                    <apex:repeat value="{!orderItems}" var="it">
+                    <apex:repeat value="{!orderItemWrappers}" var="wrapper">
                         <apex:variable var="idx" value="{!idx + 1}" />
                         <tr>
                             <td>{!idx}</td>
-                            <td>{!it.PricebookEntry.Product2.Name}</td>
-                            <td class="right">INR<apex:outputText value="{0, number, ###,###.##}"><apex:param value="{!IF(it.UnitPrice==null, 0, it.UnitPrice)}"/></apex:outputText></td>
-                            <td class="right">{!IF(it.Quantity==null, 1, it.Quantity)}</td>
-                            <td class="right">INR<apex:outputText value="{0, number, ###,###.##}"><apex:param value="{! (IF(it.UnitPrice==null, 0, it.UnitPrice) * IF(it.Quantity==null, 1, it.Quantity))}"/></apex:outputText></td>
+                            <td>{!wrapper.item.PricebookEntry.Product2.Name}</td>
+                            <td class="right">INR<apex:outputText value="{0, number, ###,###.##}"><apex:param value="{!wrapper.item.UnitPrice}"/></apex:outputText></td>
+                            <td class="right">{!targetCurrency}<apex:outputText value="{0, number, ###,###.##}"><apex:param value="{!wrapper.convertedUnitPrice}"/></apex:outputText></td>
+                            <td class="right">{!IF(wrapper.item.Quantity==null, 1, wrapper.item.Quantity)}</td>
+                            <td class="right">INR<apex:outputText value="{0, number, ###,###.##}"><apex:param value="{!wrapper.originalTotal}"/></apex:outputText></td>
+                            <td class="right">{!targetCurrency}<apex:outputText value="{0, number, ###,###.##}"><apex:param value="{!wrapper.convertedTotal}"/></apex:outputText></td>
                         </tr>
                     </apex:repeat>
                 </tbody>
             </table>
             <div style="width:100%;display:flex;justify-content:flex-end;margin-top:15px;">
                 <table style="width:300px;border:1px solid #007bff;">
-                    <tr><td style="font-weight:bold;background:#007bff;color:white;">Total</td><td class="right" style="font-weight:bold;background:#f0f8ff;">INR<apex:outputText value="{0, number, ###,###.##}"><apex:param value="{!total}"/></apex:outputText></td></tr>
-                    <tr><td style="font-weight:bold;background:#007bff;color:white;">Converted Total</td><td class="right" style="font-weight:bold;background:#f0f8ff;">{!targetCurrency}<apex:outputText value="{0, number, ###,###.##}"><apex:param value="{!total}"/></apex:outputText></td></tr>
+                    <tr><td style="font-weight:bold;background:#007bff;color:white;">Total</td><td class="right" style="font-weight:bold;background:#f0f8ff;">{!targetCurrency}<apex:outputText value="{0, number, ###,###.##}"><apex:param value="{!total}"/></apex:outputText></td></tr>
                 </table>
             </div>
         </div>
         <div class="footer">
-            Suite 607, Nandan Pro Biz, Laxman Nagar, Balewadi, Pune, Maharashtra 411045, India 
-            CRM Team Innovation Private Limited is a subsidiary of CRM Team Global Limited, a salesforce.com PARTNER. 
+            Suite 607, Nandan Pro Biz, Laxman Nagar, Balewadi, Pune, Maharashtra 411045, India
+            CRM Team Innovation Private Limited is a subsidiary of CRM Team Global Limited, a salesforce.com PARTNER.
         </div>
     </body>
 </apex:page>

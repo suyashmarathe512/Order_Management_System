@@ -4,8 +4,21 @@
  * @Description:     This class is used to generate the invoice pdf for the order.
  ***********************************************************************************/
 public with sharing class InvoicePDFController{
+    public class OrderItemWrapper {
+        public OrderItem item { get; private set; }
+        public Decimal convertedUnitPrice { get; private set; }
+        public Decimal convertedTotal { get; private set; }
+        public Decimal originalTotal { get; private set; }
+
+        public OrderItemWrapper(OrderItem oi, Decimal convUnitPrice, Decimal convTotal, Decimal origTotal) {
+            this.item = oi;
+            this.convertedUnitPrice = convUnitPrice;
+            this.convertedTotal = convTotal;
+            this.originalTotal = origTotal;
+        }
+    }
     public Order order{get;private set;}
-    public List<OrderItem> orderItems{get;private set;}
+    public List<OrderItemWrapper> orderItemWrappers{get;private set;}
     public Decimal total{get;private set;}
     public String targetCurrency{get;private set;}
     public String invoiceDateForDisplay{get;private set;}
@@ -18,7 +31,7 @@ public with sharing class InvoicePDFController{
         // Try to get the Order Id from the page parameter to always render the intended order
         Id orderIdParam;
         try{
-            String idStr=ApexPages.currentPage()!=null ? ApexPages.currentPage().getParameters().get('id') : null;
+            String idStr=ApexPages.currentPage().getParameters().get('id');
             if(!String.isBlank(idStr)){
                 orderIdParam=(Id) idStr;
             }
@@ -28,14 +41,14 @@ public with sharing class InvoicePDFController{
         if(orderIdParam != null){
             // Load the specific Order passed in, ensuring it's accessible
             List<Order> ords=[
-                SELECT 
+                SELECT
                     Id,Name,CreatedDate,AccountId,
                     BillingStreet,BillingCity,BillingState,BillingPostalCode,BillingCountry,
                     ShippingStreet,ShippingCity,ShippingState,ShippingPostalCode,ShippingCountry,
                     Account.Name
-                FROM 
+                FROM
                     Order
-                WHERE 
+                WHERE
                     Id=:orderIdParam
                 LIMIT 1
             ];
@@ -46,14 +59,14 @@ public with sharing class InvoicePDFController{
         // Fallback: previous behavior - latest Activated Order
         if(order == null){
             List<Order> latest=[
-                SELECT 
+                SELECT
                     Id,Name,CreatedDate,AccountId,
                     BillingStreet,BillingCity,BillingState,BillingPostalCode,BillingCountry,
                     ShippingStreet,ShippingCity,ShippingState,ShippingPostalCode,ShippingCountry,
                     Account.Name
-                FROM 
+                FROM
                     Order
-                WHERE 
+                WHERE
                     Status='Activated'
                 ORDER BY
                     CreatedDate DESC
@@ -68,17 +81,17 @@ public with sharing class InvoicePDFController{
         }
         // Load items for the resolved order
         Id orderId=order.Id;
-        orderItems=[
-            SELECT 
+        List<OrderItem> orderItems=[
+            SELECT
                 Id,Quantity,UnitPrice,PricebookEntry.Product2.Name
-            FROM 
+            FROM
                 OrderItem
-            WHERE 
+            WHERE
                 OrderId=:orderId
-            ORDER BY 
+            ORDER BY
                 Id
         ];
-        computeTotals();
+        computeTotals(orderItems);
         // Convert CreatedDate to local timezone for display in PDF
         convertInvoiceDateForDisplay();
 }
@@ -102,7 +115,7 @@ public with sharing class InvoicePDFController{
  ***********************************************************************************/
     private void initEmpty(){
         order=new Order(Name='Unknown',EffectiveDate=Date.today());
-        orderItems=new List<OrderItem>();
+        orderItemWrappers=new List<OrderItemWrapper>();
         total=0;
 }
 /*****************************************************************************
@@ -110,21 +123,24 @@ public with sharing class InvoicePDFController{
  * @MethodName:      computeTotals
  * @Description:     This method is used to compute the totals for the order.
  ***********************************************************************************/
-   private void computeTotals(){
+   private void computeTotals(List<OrderItem> orderItems){
         total=0;
+        orderItemWrappers = new List<OrderItemWrapper>();
         if(orderItems == null){
             orderItems=new List<OrderItem>();
         }
-        // Determine target currency based on billing country
         targetCurrency = CurrencyConverterService.COUNTRY_TO_CURRENCY.get(order.BillingCountry.trim().toUpperCase());
         if (targetCurrency == null) {
-            targetCurrency = 'INR'; 
+            targetCurrency = 'INR';
         }
         for (OrderItem oi : orderItems){
-            Decimal unit=(oi.UnitPrice == null) ? 0 : oi.UnitPrice;
-            Decimal qtyDecimal=(oi.Quantity == null) ? 1 : Decimal.valueOf(String.valueOf(oi.Quantity));
-            Decimal ConvertedPrice = CurrencyConverterService.convertByCountry(unit * qtyDecimal, 'INR', order.BillingCountry);
-            total += ConvertedPrice;
+            Decimal unit=oi.UnitPrice;
+            Decimal qtyDecimal=Decimal.valueOf(String.valueOf(oi.Quantity));
+            Decimal convertedUnitPrice = CurrencyConverterService.convertByCountry(unit, 'INR', order.BillingCountry);
+            Decimal convertedTotal = convertedUnitPrice * qtyDecimal;
+            Decimal originalTotal = unit * qtyDecimal;
+            orderItemWrappers.add(new OrderItemWrapper(oi, convertedUnitPrice, convertedTotal, originalTotal));
+            total += convertedTotal;
         }
 }
 }
