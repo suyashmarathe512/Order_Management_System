@@ -189,8 +189,13 @@ export default class CheckoutPage extends NavigationMixin(LightningElement){
                 if(itemToRemove.id && itemToRemove.id.length >= 3 && itemToRemove.id.substring(0,3)=== '802'){
                     await deleteOrderItem({orderItemId: itemToRemove.id});
                 }
-                // Remove from local cart
-                this._cart= this._cart.filter(i=> i.id !== id);
+                // Mark item as deleted instead of removing it completely
+                this._cart = this._cart.map(item => {
+                    if(item.id === id) {
+                        return {...item, isDeleted: true};
+                    }
+                    return item;
+                });
                 // persist to session
                 sessionStorage.setItem('cart',JSON.stringify(this._cart));
                 // notify container to keep quantities in sync
@@ -414,14 +419,18 @@ export default class CheckoutPage extends NavigationMixin(LightningElement){
             sessionStorage.setItem('cart', JSON.stringify(this.cart));
         }catch(e){
             // ignore
-        }      // Update the draft order with current cart quantities only
+        }
+        // Update the draft order with current cart quantities only
         if(this.selectedAccountId && this.cart.length > 0){
+            // Filter out items that are marked as deleted
+            const filteredCart = this.cart.filter(item => !(item.isDeleted === true));
+            
             // Prepare parameters for the updateDraftOrder method
-            const orderItemsIds= this.cart.map(item=> item.id);
-            const qtys= this.cart.map(item=> item.qty);
-            const prices= this.cart.map(item=> item.price);
+            const orderItemsIds= filteredCart.map(item=> item.id);
+            const qtys= filteredCart.map(item=> item.qty);
+            const prices= filteredCart.map(item=> item.price);
             // Create isDeleted array - items marked as deleted will have true, others false
-            const isDeleted= this.cart.map(item=> item.isDeleted || false);
+            const isDeleted= filteredCart.map(item=> item.isDeleted || false);
             const orderParams= {
                 orderItemsIds: orderItemsIds,
                 qtys: qtys,
