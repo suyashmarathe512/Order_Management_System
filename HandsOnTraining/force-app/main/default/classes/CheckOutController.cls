@@ -580,6 +580,12 @@ public static CreateOrderResult createOrderFromCart(String jsonParams){
         out.put('contentDocumentId',insertedCv.ContentDocumentId);
         return out;
     }
+/*******************************************************************************************
+ * @AuthorName:    CRM Team Innovation
+ * @ClassName:     AccountInfo
+ * @Description:    this class is used to return the account information.
+ ********************************************************************************************/
+
     public class AccountInfo{
         @AuraEnabled public Id id;
         @AuraEnabled public String name;
@@ -594,6 +600,12 @@ public static CreateOrderResult createOrderFromCart(String jsonParams){
         @AuraEnabled public String shippingPostalCode;
         @AuraEnabled public String shippingCountry;
     }
+/*******************************************************************************************
+ * @AuthorName:    CRM Team Innovation
+ * @MethodName:     getAccountInfo
+ * @params:       accountId
+ * @Description:    this method is used to get the account information.
+ * ********************************************************************************************/
     @AuraEnabled
     public static AccountInfo getAccountInfo(Id accountId){
         if(accountId==null){

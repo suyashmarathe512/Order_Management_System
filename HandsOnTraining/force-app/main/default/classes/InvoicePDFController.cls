@@ -7,9 +7,7 @@ public with sharing class InvoicePDFController{
     public Order order{get;private set;}
     public List<OrderItem> orderItems{get;private set;}
     public Decimal total{get;private set;}
-    // Property to hold the target currency based on billing country
     public String targetCurrency{get;private set;}
-    // Property to hold the timezone-converted invoice date for display in PDF
     public String invoiceDateForDisplay{get;private set;}
 /*****************************************************************************
  * @AuthorName:     CRM Team Innovation

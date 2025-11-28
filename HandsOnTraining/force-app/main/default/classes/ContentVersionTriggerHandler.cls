@@ -1,4 +1,15 @@
+/*****************************************************************************
+ * @AuthorName:     CRM Team Innovation
+ *  @ClassName:      ContentVersionTriggerHandler
+ * @Description:    Trigger Handler to link Product Images based on ContentVersion Title
+ *****************************************************************************/
 public class ContentVersionTriggerHandler{
+/*****************************************************************************
+     * @AuthorName:     CRM Team Innovation
+     * @MethodName:     linkProductImages
+     * @Description:   Links Product2 records to ContentDocument based on ContentVersion Title matching Product2 Name
+     * @Parameters:    List<ContentVersion> newVersions - List of newly inserted ContentVersion records
+*****************************************************************************/
     public static void linkProductImages(List<ContentVersion> newVersions){
         if (newVersions==null || newVersions.isEmpty()){
             return;
