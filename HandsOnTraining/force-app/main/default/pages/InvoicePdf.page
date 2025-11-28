@@ -30,7 +30,7 @@
         <div>
             <table>
                 <tr>
-                    <td><strong>Invoice Date</strong><br/>{!order.CreatedDate}</td>
+                    <td><strong>Invoice Date</strong><br/>{!invoiceDateForDisplay}</td>
                     <td><strong>Bill To </strong><br/>{!order.Account.Name}</td>
                     <td><strong>Ship To</strong><br/>{!order.ShippingStreet}<br/>{!order.ShippingCity}</td>
                 </tr>
@@ -62,6 +62,7 @@
             <div style="width:100%;display:flex;justify-content:flex-end;margin-top:15px;">
                 <table style="width:300px;border:1px solid #007bff;">
                     <tr><td style="font-weight:bold;background:#007bff;color:white;">Total</td><td class="right" style="font-weight:bold;background:#f0f8ff;">INR<apex:outputText value="{0, number, ###,###.##}"><apex:param value="{!total}"/></apex:outputText></td></tr>
+                    <tr><td style="font-weight:bold;background:#007bff;color:white;">Converted Total</td><td class="right" style="font-weight:bold;background:#f0f8ff;">{!targetCurrency}<apex:outputText value="{0, number, ###,###.##}"><apex:param value="{!total}"/></apex:outputText></td></tr>
                 </table>
             </div>
         </div>

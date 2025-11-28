@@ -7,6 +7,10 @@ public with sharing class InvoicePDFController{
     public Order order{get;private set;}
     public List<OrderItem> orderItems{get;private set;}
     public Decimal total{get;private set;}
+    // Property to hold the target currency based on billing country
+    public String targetCurrency{get;private set;}
+    // Property to hold the timezone-converted invoice date for display in PDF
+    public String invoiceDateForDisplay{get;private set;}
 /*****************************************************************************
  * @AuthorName:     CRM Team Innovation
  * @MethodName:      InvoicePDFController
@@ -77,7 +81,22 @@ public with sharing class InvoicePDFController{
                 Id
         ];
         computeTotals();
+        // Convert CreatedDate to local timezone for display in PDF
+        convertInvoiceDateForDisplay();
 }
+/*****************************************************************************
+ * @AuthorName:     CRM Team Innovation
+ * @MethodName:      convertInvoiceDateForDisplay
+ * @Description:     Converts the order's CreatedDate to the customer's local timezone for PDF display
+ ***********************************************************************************/
+    private void convertInvoiceDateForDisplay(){
+        if(order != null && order.CreatedDate != null){
+            String billingCountry = order.BillingCountry;
+            invoiceDateForDisplay = TimezoneConverterService.convertToLocalTimeString(order.CreatedDate, billingCountry);
+        }else {
+            invoiceDateForDisplay = '';
+        }
+    }
 /*****************************************************************************
  * @AuthorName:     CRM Team Innovation
  * @MethodName:      initEmpty
@@ -98,10 +117,16 @@ public with sharing class InvoicePDFController{
         if(orderItems == null){
             orderItems=new List<OrderItem>();
         }
+        // Determine target currency based on billing country
+        targetCurrency = CurrencyConverterService.COUNTRY_TO_CURRENCY.get(order.BillingCountry.trim().toUpperCase());
+        if (targetCurrency == null) {
+            targetCurrency = 'INR'; 
+        }
         for (OrderItem oi : orderItems){
             Decimal unit=(oi.UnitPrice == null) ? 0 : oi.UnitPrice;
             Decimal qtyDecimal=(oi.Quantity == null) ? 1 : Decimal.valueOf(String.valueOf(oi.Quantity));
-            total += unit * qtyDecimal;
+            Decimal ConvertedPrice = CurrencyConverterService.convertByCountry(unit * qtyDecimal, 'INR', order.BillingCountry);
+            total += ConvertedPrice;
         }
 }
 }

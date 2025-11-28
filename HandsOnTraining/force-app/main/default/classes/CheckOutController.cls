@@ -485,7 +485,7 @@ public static CreateOrderResult createOrderFromCart(String jsonParams){
         // 1)Find the most recent Activated Order
         List<Order> latestOrders=[
             SELECT 
-                Id,Name,EffectiveDate,AccountId
+                Id,Name,EffectiveDate,AccountId,BillingCountry
             FROM 
                 Order
             WHERE 
@@ -515,6 +515,7 @@ public static CreateOrderResult createOrderFromCart(String jsonParams){
             }
         }
         // 3)Build filename and render the VF as PDF for the specific Order Id
+        // Use timezone-converted date for filename to ensure consistency
         String invoiceFileName=(ord.Name != null ? ord.Name:'Invoice')+'_' +
                                  (ord.EffectiveDate != null ? String.valueOf(ord.EffectiveDate):'')+'.pdf';
         PageReference pr=Page.InvoicePdf;
@@ -534,6 +535,11 @@ public static CreateOrderResult createOrderFromCart(String jsonParams){
             cv.FirstPublishLocationId=ord.AccountId;
         } else {
             cv.FirstPublishLocationId=UserInfo.getUserId();
+        }
+        // Set the CreatedDate on ContentVersion to the timezone-converted order CreatedDate
+        // This ensures ContentVersion metadata uses the customer's local time instead of UTC
+        if(ord.CreatedDate != null){
+            cv.CreatedDate = ord.CreatedDate;
         }
         insert cv;
         // 5)Retrieve ContentDocumentId and ensure explicit link to the Order
@@ -595,7 +601,8 @@ public static CreateOrderResult createOrderFromCart(String jsonParams){
         }
         Account acc=[SELECT 
                             Id,Name,BillingStreet,BillingCity,BillingState,BillingPostalCode,BillingCountry,
-                            ShippingStreet,ShippingCity,ShippingState,ShippingPostalCode,ShippingCountry
+                            ShippingStreet,ShippingCity,ShippingState,ShippingPostalCode,ShippingCountry,
+                            Country__c
                         FROM 
                             Account 
                         WHERE 
@@ -609,12 +616,12 @@ public static CreateOrderResult createOrderFromCart(String jsonParams){
             accInfo.billingCity=acc.BillingCity;
             accInfo.billingState=acc.BillingState;
             accInfo.billingPostalCode=acc.BillingPostalCode;
-            accInfo.billingCountry=acc.BillingCountry;
+            accInfo.billingCountry=acc.Country__c;
             accInfo.shippingStreet=acc.ShippingStreet;
             accInfo.shippingCity=acc.ShippingCity;
             accInfo.shippingState=acc.ShippingState;
             accInfo.shippingPostalCode=acc.ShippingPostalCode;
-            accInfo.shippingCountry=acc.ShippingCountry;
+            accInfo.shippingCountry=acc.Country__c;
             return accInfo;
         }
         return null;

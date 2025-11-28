@@ -8,6 +8,7 @@ import{NavigationMixin }from 'lightning/navigation';
 import{CurrentPageReference }from 'lightning/navigation';
 import getAccountInfo from '@salesforce/apex/CheckOutController.getAccountInfo';
 import getContractsForAccount from '@salesforce/apex/CheckOutController.getContractsForAccount';
+import convertByCountryAura from '@salesforce/apex/CurrencyConverterService.convertByCountryAura';
 export default class CheckoutPage extends NavigationMixin(LightningElement){
     @track _cart=[];
     @track isLoading=false;
@@ -111,6 +112,17 @@ export default class CheckoutPage extends NavigationMixin(LightningElement){
     get formattedTotal(){
         return this.currencyFormatter(this.total);
     }
+    // Convert total based on billing country before formatting and display as converted amount
+    get convertedTotalFormatted(){
+        const amount = this.total || 0;
+        const country = (this.billingAddress && this.billingAddress.country) ? this.billingAddress.country : '';
+        if(!country){
+            return this.currencyFormatter(amount);
+        }
+        // Trigger async conversion and return last cached value until it resolves
+        this.convertTotalIfNeeded(amount, country);
+        return this._lastConvertedTotalFormatted || this.currencyFormatter(amount);
+    }
     get currencyFormatter(){
         return(val)=>{
             const num=Number(val||0);
@@ -127,6 +139,55 @@ export default class CheckoutPage extends NavigationMixin(LightningElement){
             const price=Number(item?.price||0);
             return qty * price;
         };
+    }
+
+    // Internal cache of last conversion inputs and result
+    _lastConvKey;
+    _lastConvertedTotalFormatted;
+
+    async convertTotalIfNeeded(amount, country){
+        try{
+            const key = `${amount}::${country}`;
+            if(this._lastConvKey === key){
+                return;
+            }
+            this._lastConvKey = key;
+            // Base currency should always be India (INR) as per requirement
+            const baseCurrency = 'INR';
+            const converted = await convertByCountryAura({ amount, baseCurrency, country });
+            // Choose a formatter for target currency using Intl when possible
+            const targetFmt = this._getFormatterForCountry(country, converted);
+            this._lastConvertedTotalFormatted = targetFmt;
+            // Force re-render
+            this.dispatchEvent(new CustomEvent('convupdate'));
+        }catch(e){
+            // On any failure, fall back to base currency formatting
+            this._lastConvertedTotalFormatted = this.currencyFormatter(amount);
+        }
+    }
+
+    _getFormatterForCountry(country, amount){
+        const upper = (country || '').trim().toUpperCase();
+        // Map a few common countries to currency codes to format symbol correctly
+        const map = {
+            'INDIA':'INR',
+            'UNITED STATES':'USD',
+            'USA':'USD',
+            'UNITED KINGDOM':'GBP',
+            'UK':'GBP',
+            'JAPAN':'JPY',
+            'CANADA':'CAD',
+            'AUSTRALIA':'AUD',
+            'GERMANY':'EUR',
+            'FRANCE':'EUR'
+        };
+        const code = map[upper] || 'USD';
+        try{
+            return new Intl.NumberFormat('en-IN',{style:'currency',currency:code,maximumFractionDigits:0}).format(Number(amount||0));
+        }catch(e){
+            // fallback
+            return `${code} ${Number(amount||0)}`;
+        }
     }
     handleQtyButton(evt){
         const id=evt.currentTarget.dataset.id;
